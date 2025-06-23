@@ -1,0 +1,5 @@
+# wrangler.toml
+name = "clever-accounting-app" # 给你的 Worker 一个独特的名称
+main = "app.js"             # <--- 重要：将此路径指向你的主 Worker 脚本
+compatibility_date = "2025-06-23" # 使用当前日期或未来日期以获得最新功能
+# account_id = "你的Cloudflare账户ID" # 你可以添加这个，但通过 `wrangler login` 命令登录后通常会自动配置
