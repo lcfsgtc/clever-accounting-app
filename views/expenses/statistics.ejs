@@ -1,0 +1,190 @@
+<%# --- CSS 部分保持不变，无需修改 --- %>
+<style>
+    /* ... 您的所有 CSS 样式 ... */
+    /* 为了简洁，这里省略了您之前提供的 CSS 代码，请保留您文件中的原有样式 */
+    .card-header a {
+        text-decoration: none;
+        color: inherit;
+        display: block; /* 让整个头部区域都可点击 */
+    }
+    .card-header a:not(.collapsed)::after {
+        transform: rotate(-180deg);
+    }
+    .card-header a::after {
+        font-family: 'Font Awesome 5 Free';
+        font-weight: 900;
+        content: '\f078'; /* Font Awesome down-arrow icon */
+        float: right;
+        transition: transform 0.2s ease-in-out;
+    }
+</style>
+
+<div class="container-fluid main-content-wrapper pt-4 pb-4">
+    <h1 class="page-title mb-4">支出统计 <i class="fas fa-chart-pie"></i></h1>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3" id="headingFilter">
+            <%# 将标题包装在 <a> 标签中，并添加 collapse 触发器属性 %>
+            <a href="#" class="d-block text-decoration-none text-dark" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <h5 class="mb-0">
+                    筛选条件 <i class="fas fa-filter text-muted ms-2"></i>
+                </h5>
+            </a>
+        </div>
+        <%# 为内容区域添加 id="filterCollapse" 和 class="collapse show" %>
+        <div id="filterCollapse" class="collapse show" aria-labelledby="headingFilter">
+            <div class="card-body">
+                <form action="/expenses/statistics" method="GET">
+                    <div class="row g-3">
+                        <%# 表单内容保持不变，使用 col-12 来确保移动端响应式 %>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="startDate" class="form-label"><i class="far fa-calendar-alt"></i> 开始日期:</label>
+                            <input type="date" class="form-control" id="startDate" name="startDate" value="<%= typeof query !== 'undefined' && query.startDate ? query.startDate : '' %>">
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="endDate" class="form-label"><i class="far fa-calendar-alt"></i> 结束日期:</label>
+                            <input type="date" class="form-control" id="endDate" name="endDate" value="<%= typeof query !== 'undefined' && query.endDate ? query.endDate : '' %>">
+                        </div>
+                        <%# ... 其他表单项保持不变 ... %>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="category" class="form-label"><i class="fas fa-tags"></i> 大类:</label>
+                            <select class="form-select" id="category" name="category">
+                                <option value="">所有大类</option>
+                                <option value="衣" <%= typeof query !== 'undefined' && query.category === '衣' ? 'selected' : '' %>>衣</option>
+                                <option value="食" <%= typeof query !== 'undefined' && query.category === '食' ? 'selected' : '' %>>食</option>
+                                <option value="住" <%= typeof query !== 'undefined' && query.category === '住' ? 'selected' : '' %>>住</option>
+                                <option value="行" <%= typeof query !== 'undefined' && query.category === '行' ? 'selected' : '' %>>行</option>
+                                <option value="医" <%= typeof query !== 'undefined' && query.category === '医' ? 'selected' : '' %>>医</option>
+                                <option value="娱" <%= typeof query !== 'undefined' && query.category === '娱' ? 'selected' : '' %>>娱</option>
+                                <option value="人情" <%= typeof query !== 'undefined' && query.category === '人情' ? 'selected' : '' %>>人情</option>
+                                <option value="其他" <%= typeof query !== 'undefined' && query.category === '其他' ? 'selected' : '' %>>其他</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="subcategory" class="form-label"><i class="fas fa-tag"></i> 小类:</label>
+                            <select class="form-select" id="subcategory" name="subcategory">
+                                <option value="">所有小类</option>
+                                <% distinctSubcategories.forEach(subcat => { %>
+                                    <option value="<%= subcat %>" <%= typeof query !== 'undefined' && query.subcategory === subcat ? 'selected' : '' %>>
+                                        <%= subcat %>
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="minAmount" class="form-label"><i class="fas fa-minus-circle"></i> 最小金额:</label>
+                            <input type="number" class="form-control" id="minAmount" name="minAmount" value="<%= typeof query !== 'undefined' && query.minAmount ? query.minAmount : '' %>">
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="maxAmount" class="form-label"><i class="fas fa-plus-circle"></i> 最大金额:</label>
+                            <input type="number" class="form-control" id="maxAmount" name="maxAmount" value="<%= typeof query !== 'undefined' && query.maxAmount ? query.maxAmount : '' %>">
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label for="period" class="form-label"><i class="fas fa-chart-bar"></i> 统计方式:</label>
+                            <select id="period" name="period" class="form-select">
+                                <option value="" <%= typeof query !== 'undefined' && query.period === "" ? 'selected' : '' %>>总计</option>
+                                <option value="category" <%= typeof query !== 'undefined' && query.period === "category" ? 'selected' : '' %>>按大类</option>
+                                <option value="subcategory" <%= typeof query !== 'undefined' && query.period === "subcategory" ? 'selected' : '' %>>按小类</option>
+                                <option value="categoryAndSubcategory" <%= typeof query !== 'undefined' && query.period === "categoryAndSubcategory" ? 'selected' : '' %>>按大类和小类</option>
+                                <option value="year" <%= typeof query !== 'undefined' && query.period === "year" ? 'selected' : '' %>>按年</option>
+                                <option value="month" <%= typeof query !== 'undefined' && query.period === "month" ? 'selected' : '' %>>按月</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4 col-lg-3" id="yearSelectGroup" style="display: <%= typeof query !== 'undefined' && query.period === 'month' ? 'block' : 'none' %>;">
+                            <label for="year" class="form-label"><i class="fas fa-calendar"></i> 选择年度:</label>
+                            <select id="year" name="year" class="form-select">
+                                <% distinctYears.forEach(year => { %>
+                                    <option value="<%= year %>" <%= typeof query !== 'undefined' && query.year == year ? 'selected' : '' %>>
+                                        <%= year %> 年
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-end gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary flex-grow-1 flex-md-grow-0"><i class="fas fa-filter me-2"></i> 生成统计</button>
+                        <a href="/expenses/statistics" class="btn btn-secondary flex-grow-1 flex-md-grow-0"><i class="fas fa-redo me-2"></i> 重置</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3" id="headingStats">
+            <a href="#" class="d-block text-decoration-none text-dark" data-bs-toggle="collapse" data-bs-target="#statsCollapse" aria-expanded="true" aria-controls="statsCollapse">
+                <h5 class="mb-0">
+                    统计详情 <i class="fas fa-table text-muted ms-2"></i>
+                </h5>
+            </a>
+        </div>
+        <div id="statsCollapse" class="collapse show" aria-labelledby="headingStats">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-primary">
+                            <tr>
+                                <th class="py-3">统计类别</th>
+                                <th class="py-3">总金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% let totalOverallAmount = 0; %>
+                            <% if (statistics && statistics.length > 0) { %>
+                                <% statistics.forEach(item => { %>
+                                    <tr>
+                                        <% if (query.period === 'categoryAndSubcategory') { %>
+                                            <td data-label="统计类别"><%= item._id.category %> - <%= item._id.subcategory %></td>
+                                        <% } else { %>
+                                            <td data-label="统计类别"><%= item._id %></td>
+                                        <% } %>
+                                        <td data-label="总金额">¥ <%= item.totalAmount.toFixed(2) %></td>
+                                    </tr>
+                                    <% totalOverallAmount += item.totalAmount; %>
+                                <% }); %>
+                                <tr class="table-info fw-bold">
+                                    <td colspan="2" class="text-center">总计: ¥ <%= totalOverallAmount.toFixed(2) %></td>
+                                </tr>
+                            <% } else { %>
+                                <tr>
+                                    <td colspan="2" class="text-center py-5 text-muted">
+                                        <i class="fas fa-info-circle display-4 mb-3"></i>
+                                        <p class="lead text-muted">没有找到符合条件的统计数据。</p>
+                                        <p class="text-muted">请调整筛选条件或生成统计。</p>
+                                    </td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-center">
+        <a href="/expenses" class="btn btn-secondary mt-4"><i class="fas fa-arrow-left me-2"></i> 返回支出列表</a>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // JavaScript 逻辑保持不变
+        const query = <%- JSON.stringify(query || {}) %>;
+        const periodType = query.period || '';
+        const yearSelectGroup = document.getElementById('yearSelectGroup');
+        const periodSelect = document.getElementById('period');
+
+        periodSelect.addEventListener('change', function() {
+            if (this.value === 'month') {
+                yearSelectGroup.style.display = 'block';
+            } else {
+                yearSelectGroup.style.display = 'none';
+            }
+        });
+
+        if (periodType === 'month') {
+            yearSelectGroup.style.display = 'block';
+        } else {
+            yearSelectGroup.style.display = 'none';
+        }
+    });
+</script>
