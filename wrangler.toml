@@ -6,3 +6,5 @@ compatibility_date = "2025-06-23" # 使用当前日期或未来日期以获得�
 # 将 nodejs_compat 作为一个字符串添加到 compatibility_flags 数组中
 # 注意：这里是直接的数组赋值，而不是一个 [compatibility_flags] 部分
 compatibility_flags = ["nodejs_compat"] 
+# 添加这一行，明确将 Worker 类型设置为 'module'
+type = "module"
