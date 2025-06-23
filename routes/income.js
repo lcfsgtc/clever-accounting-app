@@ -207,8 +207,8 @@ module.exports = (app, Income, requireLogin,mongoose, path, querystring, Parser,
                     categoryType: categoryType || '',
                     minAmount: minAmount || '',
                     maxAmount: maxAmount || '',
-                    period: period || '',
-                    activeMenu: 'incomesStatistics'
+                    period: period || ''//,
+                    //activeMenu: 'incomesStatistics'
                 });
             } catch (err) {
                 console.error(err);
