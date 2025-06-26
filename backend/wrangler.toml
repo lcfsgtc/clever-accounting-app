@@ -1,0 +1,19 @@
+name = "api-worker" # 你的 Worker 名称
+main = "src/index.js" # Worker 的入口文件
+compatibility_date = "2025-06-24" # 确保此日期是最新或至少在 2024-09-23 之后
+
+# 修正 compatibility_flags 的格式，它应该是一个字符串数组
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+port = 3000 # 设置本地开发服务器端口，如果你的前端代理配置为 3000
+#local_env = true # 这一行非常关键，确保它存在且没有被注释掉
+# 将 .env 中的 MONGO_URI 变量注入到 Worker 的 env 对象中
+# 注意：这只是为了本地开发方便，生产环境建议使用 Cloudflare Secrets (wrangler secret put)
+[vars]
+SUPABASE_URL="https://lluavzyujocmbqbbzpox.supabase.co"
+SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsdWF2enl1am9jbWJxYmJ6cG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjIyOTIsImV4cCI6MjA2NjM5ODI5Mn0.cVW9WpBV_5fmfg1ltc7ijgEQ98bIVKOPMZSgUSjSTns"
+JWT_SECRET="gdsrsrwq233213"
+#SUPABASE_URL = "{{SUPABASE_URL}}" # 这会从 .env 文件中加载 SUPABASE_URL 的值
+#SUPABASE_KEY = "{{SUPABASE_KEY}}" # 这会从 .env 文件中加载 SUPABASE_KEY 的值
+# SUPABASE_SERVICE_ROLE_KEY = "{{SUPABASE_SERVICE_ROLE_KEY}}" # 如果需要更高权限，请使用此项

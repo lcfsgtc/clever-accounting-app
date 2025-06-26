@@ -1,0 +1,488 @@
+-- models/User.js 对应的 Supabase (PostgreSQL) SQL
+-- 此表用于存储用户资料，核心认证信息由 Supabase 的 auth.users 表管理。
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建 'user_profiles' 表
+CREATE TABLE IF NOT EXISTS user_profiles (
+    -- user_id 作为主键，同时引用 auth.users 表的 id
+    -- 这意味着每个认证用户在 user_profiles 表中只能有一条记录
+    user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    username text UNIQUE NOT NULL,                          -- 用户名，非空且唯一
+    email text UNIQUE NOT NULL,                             -- 邮箱，非空且唯一
+                                                            -- 邮箱的格式验证通常在应用层或 auth 服务中完成
+    is_admin boolean DEFAULT FALSE NOT NULL,                -- 是否为管理员，默认为 FALSE
+    created_at timestamp with time zone DEFAULT now() NOT NULL, -- 创建时间 (对应 Mongoose 的 registrationDate 和 timestamps.createdAt)
+    updated_at timestamp with time zone DEFAULT now() NOT NULL  -- 更新时间 (对应 Mongoose 的 timestamps.updatedAt)
+);
+
+-- 3. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. 将触发器附加到 'user_profiles' 表
+DROP TRIGGER IF EXISTS on_update_user_profiles_updated_at ON user_profiles; -- 防止重复创建
+CREATE TRIGGER on_update_user_profiles_updated_at
+BEFORE UPDATE ON user_profiles
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 5. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 6. 定义 RLS 策略：允许用户查看自己的资料
+DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles; -- 防止重复创建
+CREATE POLICY "Users can view their own profile" ON user_profiles
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 7. 定义 RLS 策略：允许用户创建自己的资料
+-- 通常在用户首次注册或登录后，需要为他们创建对应的资料记录
+DROP POLICY IF EXISTS "Users can create their own profile" ON user_profiles; -- 防止重复创建
+CREATE POLICY "Users can create their own profile" ON user_profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 8. 定义 RLS 策略：允许用户更新自己的资料
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles; -- 防止重复创建
+CREATE POLICY "Users can update their own profile" ON user_profiles
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许管理员查看所有资料 (可选，根据您的需求)
+-- 如果只有管理员才能删除用户资料，则需要另一个策略
+DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles; -- 防止重复创建
+CREATE POLICY "Admins can view all profiles" ON user_profiles
+  FOR SELECT USING (is_admin = TRUE); -- 这需要您在 auth.users 或 user_profiles 中设置 is_admin 字段，并确保其正确更新
+
+-- 10. 定义 RLS 策略：允许管理员删除任意资料 (可选，根据您的需求)
+DROP POLICY IF EXISTS "Admins can delete any profile" ON user_profiles; -- 防止重复创建
+CREATE POLICY "Admins can delete any profile" ON user_profiles
+  FOR DELETE USING (auth.uid() IN (SELECT user_id FROM user_profiles WHERE is_admin = TRUE));
+  -- 注意：这个策略假设当前操作的用户在 user_profiles 表中被标记为 is_admin = TRUE
+  -- 如果管理员信息只在 auth.users 的 app_metadata 中，则需要更复杂的 RLS 表达式或 Edge Function 来处理
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_user_profiles_username ON user_profiles (username);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles (email);
+
+
+
+
+
+-- models/Asset.js 对应的 Supabase (PostgreSQL) SQL
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+-- 这是生成 UUID 类型主键所必需的。
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建自定义 ENUM 类型，用于 'condition' (资产状况)
+-- Mongoose 的 enum 字段将映射到 PostgreSQL 的 ENUM 类型，以保持数据约束
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'asset_condition_enum') THEN
+        CREATE TYPE asset_condition_enum AS ENUM (
+            '全新',
+            '良好',
+            '一般',
+            '较差',
+            '报废'
+        );
+    END IF;
+END $$;
+
+-- 3. 创建自定义 ENUM 类型，用于 'depreciation_method' (折旧方法)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'depreciation_method_enum') THEN
+        CREATE TYPE depreciation_method_enum AS ENUM (
+            '直线折旧',
+            '余额递减'
+        );
+    END IF;
+END $$;
+
+
+-- 4. 创建 'assets' 表
+CREATE TABLE IF NOT EXISTS assets (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), -- UUID 主键，自动生成
+    user_id uuid REFERENCES auth.users(id) NOT NULL, -- 关联到 Supabase 的 auth.users 表，非空
+    name text NOT NULL,                               -- 资产名称，非空
+    type text NOT NULL,                               -- 资产类型，非空
+    quantity numeric DEFAULT 1 NOT NULL,              -- 数量，默认为 1，非空
+    cost numeric NOT NULL,                            -- 成本，非空
+    current_value numeric DEFAULT 0 NOT NULL,         -- 资产现值，默认为 0，非空
+    purchase_date timestamp with time zone DEFAULT now(), -- 购买日期，默认为当前时间
+    condition asset_condition_enum DEFAULT '良好',   -- 资产状况，使用自定义 ENUM
+    depreciation_method depreciation_method_enum DEFAULT '直线折旧', -- 折旧方法，使用自定义 ENUM
+    depreciation_rate numeric DEFAULT 0,              -- 折旧率，默认为 0
+    notes text,                                       -- 备注
+    created_at timestamp with time zone DEFAULT now(),-- 创建时间，自动设置
+    updated_at timestamp with time zone DEFAULT now() -- 更新时间，通过触发器自动更新
+);
+
+-- 5. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 6. 将触发器附加到 'assets' 表
+DROP TRIGGER IF EXISTS on_update_assets_updated_at ON assets; -- 防止重复创建
+CREATE TRIGGER on_update_assets_updated_at
+BEFORE UPDATE ON assets
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 7. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+
+-- 8. 定义 RLS 策略：允许用户查看自己的资产
+DROP POLICY IF EXISTS "Users can view their own assets" ON assets; -- 防止重复创建
+CREATE POLICY "Users can view their own assets" ON assets
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许用户创建自己的资产
+DROP POLICY IF EXISTS "Users can insert their own assets" ON assets; -- 防止重复创建
+CREATE POLICY "Users can insert their own assets" ON assets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 10. 定义 RLS 策略：允许用户更新自己的资产
+DROP POLICY IF EXISTS "Users can update their own assets" ON assets; -- 防止重复创建
+CREATE POLICY "Users can update their own assets" ON assets
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 11. 定义 RLS 策略：允许用户删除自己的资产
+DROP POLICY IF EXISTS "Users can delete their own assets" ON assets; -- 防止重复创建
+CREATE POLICY "Users can delete their own assets" ON assets
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id);
+CREATE INDEX IF NOT EXISTS idx_assets_type ON assets (type);
+CREATE INDEX IF NOT EXISTS idx_assets_purchase_date ON assets (purchase_date);
+
+
+
+-- models/BookNote.js 对应的 Supabase (PostgreSQL) SQL
+-- 此表用于存储用户的读书笔记
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建 'booknotes' 表
+CREATE TABLE IF NOT EXISTS booknotes (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),          -- UUID 主键，自动生成
+    user_id uuid REFERENCES auth.users(id) NOT NULL,         -- 关联到 Supabase 的 auth.users 表，非空
+    title text NOT NULL,                                     -- 笔记标题，非空
+    author text DEFAULT '未知',                               -- 作者，默认为 '未知'
+    publish_year integer CHECK (publish_year >= 1000 AND publish_year <= 9999), -- 出版年份，可选范围约束
+    category text DEFAULT '未分类',                           -- 图书大类，默认为 '未分类'
+    tags text[],                                             -- 标签数组
+    read_date timestamp with time zone DEFAULT now(),        -- 阅读日期，默认为当前时间
+    rating numeric CHECK (rating >= 1 AND rating <= 5),      -- 评分，范围1-5，可选
+    notes text NOT NULL,                                     -- 笔记内容，非空
+    created_at timestamp with time zone DEFAULT now() NOT NULL, -- 创建时间，自动设置
+    updated_at timestamp with time zone DEFAULT now() NOT NULL  -- 更新时间，通过触发器自动更新
+);
+
+-- 3. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. 将触发器附加到 'booknotes' 表
+DROP TRIGGER IF EXISTS on_update_booknotes_updated_at ON booknotes; -- 防止重复创建
+CREATE TRIGGER on_update_booknotes_updated_at
+BEFORE UPDATE ON booknotes
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 5. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE booknotes ENABLE ROW LEVEL SECURITY;
+
+-- 6. 定义 RLS 策略：允许用户查看自己的读书笔记
+DROP POLICY IF EXISTS "Users can view their own book notes" ON booknotes; -- 防止重复创建
+CREATE POLICY "Users can view their own booknotes" ON booknotes
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 7. 定义 RLS 策略：允许用户创建自己的读书笔记
+DROP POLICY IF EXISTS "Users can insert their own booknotes" ON booknotes; -- 防止重复创建
+CREATE POLICY "Users can insert their own book notes" ON booknotes
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 8. 定义 RLS 策略：允许用户更新自己的读书笔记
+DROP POLICY IF EXISTS "Users can update their own book notes" ON booknotes; -- 防止重复创建
+CREATE POLICY "Users can update their own book notes" ON booknotes
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许用户删除自己的读书笔记
+DROP POLICY IF EXISTS "Users can delete their own booknotes" ON booknotes; -- 防止重复创建
+CREATE POLICY "Users can delete their own booknotes" ON booknotes
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_booknotes_user_id ON booknotes (user_id);
+CREATE INDEX IF NOT EXISTS idx_booknotes_title ON booknotes (title);
+CREATE INDEX IF NOT EXISTS idx_booknotes_category ON booknotes (category);
+CREATE INDEX IF NOT EXISTS idx_booknotes_tags ON booknotes USING GIN (tags); -- GIN 索引适用于数组类型查询
+
+
+-- models/Diary.js 对应的 Supabase (PostgreSQL) SQL
+-- 此表用于存储用户的个人日记
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建自定义 ENUM 类型，用于 'weather' (天气)
+-- Mongoose 的 enum 字段将映射到 PostgreSQL 的 ENUM 类型
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'diary_weather_enum') THEN
+        CREATE TYPE diary_weather_enum AS ENUM (
+            '晴',
+            '多云',
+            '阴',
+            '雨',
+            '雪',
+            '风',
+            '雾',
+            '其他',
+            '' -- 允许空字符串作为选项
+        );
+    END IF;
+END $$;
+
+-- 3. 创建自定义 ENUM 类型，用于 'mood' (心情)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'diary_mood_enum') THEN
+        CREATE TYPE diary_mood_enum AS ENUM (
+            '快乐',
+            '悲伤',
+            '平静',
+            '激动',
+            '沮丧',
+            '其他',
+            '' -- 允许空字符串作为选项
+        );
+    END IF;
+END $$;
+
+-- 4. 创建 'diaries' 表
+CREATE TABLE IF NOT EXISTS diaries (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),          -- UUID 主键，自动生成
+    user_id uuid REFERENCES auth.users(id) NOT NULL,         -- 关联到 Supabase 的 auth.users 表，非空
+    date timestamp with time zone NOT NULL,                  -- 日记日期，非空 (Mongoose Date 类型包含时间)
+    title text DEFAULT '无标题',                               -- 标题，默认为 '无标题'
+    weather diary_weather_enum DEFAULT '',                   -- 天气，使用自定义 ENUM
+    mood diary_mood_enum DEFAULT '',                         -- 心情，使用自定义 ENUM
+    location text,                                           -- 地点
+    people text[],                                           -- 相关人物列表 (文本数组)
+    tags text[],                                             -- 标签列表 (文本数组)
+    plan_list text[],                                        -- 计划列表 (文本数组)
+    event_list text[],                                       -- 事件列表 (文本数组)
+    feeling text,                                            -- 心情随笔
+    summary text,                                            -- 每日总结
+    image_urls text[],                                       -- 图片 URL 列表 (文本数组)
+    is_public boolean DEFAULT FALSE,                         -- 是否公开，默认为 false
+    created_at timestamp with time zone DEFAULT now() NOT NULL, -- 创建时间，自动设置
+    updated_at timestamp with time zone DEFAULT now() NOT NULL  -- 更新时间，通过触发器自动更新
+);
+
+-- 5. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 6. 将触发器附加到 'diaries' 表
+DROP TRIGGER IF EXISTS on_update_diaries_updated_at ON diaries; -- 防止重复创建
+CREATE TRIGGER on_update_diaries_updated_at
+BEFORE UPDATE ON diaries
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 7. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE diaries ENABLE ROW LEVEL SECURITY;
+
+-- 8. 定义 RLS 策略：允许用户查看自己的日记
+DROP POLICY IF EXISTS "Users can view their own diaries" ON diaries; -- 防止重复创建
+CREATE POLICY "Users can view their own diaries" ON diaries
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许用户创建自己的日记
+DROP POLICY IF EXISTS "Users can insert their own diaries" ON diaries; -- 防止重复创建
+CREATE POLICY "Users can insert their own diaries" ON diaries
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 10. 定义 RLS 策略：允许用户更新自己的日记
+DROP POLICY IF EXISTS "Users can update their own diaries" ON diaries; -- 防止重复创建
+CREATE POLICY "Users can update their own diaries" ON diaries
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 11. 定义 RLS 策略：允许用户删除自己的日记
+DROP POLICY IF EXISTS "Users can delete their own diaries" ON diaries; -- 防止重复创建
+CREATE POLICY "Users can delete their own diaries" ON diaries
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_diaries_user_id ON diaries (user_id);
+CREATE INDEX IF NOT EXISTS idx_diaries_date ON diaries (date);
+CREATE INDEX IF NOT EXISTS idx_diaries_tags ON diaries USING GIN (tags); -- GIN 索引适用于数组类型查询
+CREATE INDEX IF NOT EXISTS idx_diaries_is_public ON diaries (is_public); -- 如果公开日记查询频繁
+
+
+-- models/Expense.js 对应的 Supabase (PostgreSQL) SQL
+-- 此表用于存储用户的开支记录
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建自定义 ENUM 类型，用于 'category' (开支类别)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'expense_category_enum') THEN
+        CREATE TYPE expense_category_enum AS ENUM (
+            '衣',
+            '食',
+            '住',
+            '行',
+            '医',
+            '娱',
+            '人情',
+            '其他'
+        );
+    END IF;
+END $$;
+
+-- 3. 创建 'expenses' 表
+CREATE TABLE IF NOT EXISTS expenses (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),          -- UUID 主键，自动生成
+    user_id uuid REFERENCES auth.users(id) NOT NULL,         -- 关联到 Supabase 的 auth.users 表，非空
+    description text NOT NULL,                               -- 开支描述，非空
+    amount numeric NOT NULL,                                 -- 金额，非空
+    category expense_category_enum NOT NULL,                 -- 类别，使用自定义 ENUM，非空
+    subcategory text NOT NULL,                               -- 子类别，非空
+    date timestamp with time zone DEFAULT now() NOT NULL,    -- 开支日期，非空，默认为当前时间
+    created_at timestamp with time zone DEFAULT now() NOT NULL, -- 创建时间，自动设置
+    updated_at timestamp with time zone DEFAULT now() NOT NULL  -- 更新时间，通过触发器自动更新
+);
+
+-- 4. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 5. 将触发器附加到 'expenses' 表
+DROP TRIGGER IF EXISTS on_update_expenses_updated_at ON expenses; -- 防止重复创建
+CREATE TRIGGER on_update_expenses_updated_at
+BEFORE UPDATE ON expenses
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 6. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+
+-- 7. 定义 RLS 策略：允许用户查看自己的开支记录
+DROP POLICY IF EXISTS "Users can view their own expenses" ON expenses; -- 防止重复创建
+CREATE POLICY "Users can view their own expenses" ON expenses
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 8. 定义 RLS 策略：允许用户创建自己的开支记录
+DROP POLICY IF EXISTS "Users can insert their own expenses" ON expenses; -- 防止重复创建
+CREATE POLICY "Users can insert their own expenses" ON expenses
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许用户更新自己的开支记录
+DROP POLICY IF EXISTS "Users can update their own expenses" ON expenses; -- 防止重复创建
+CREATE POLICY "Users can update their own expenses" ON expenses
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 10. 定义 RLS 策略：允许用户删除自己的开支记录
+DROP POLICY IF EXISTS "Users can delete their own expenses" ON expenses; -- 防止重复创建
+CREATE POLICY "Users can delete their own expenses" ON expenses
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_expenses_user_id ON expenses (user_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses (category);
+CREATE INDEX IF NOT EXISTS idx_expenses_subcategory ON expenses (subcategory);
+
+
+
+-- models/Income.js 对应的 Supabase (PostgreSQL) SQL
+-- 此表用于存储用户的收入记录
+
+-- 1. 创建 UUID 扩展，如果尚未创建 (通常 Supabase 项目默认已创建)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. 创建 'incomes' 表
+CREATE TABLE IF NOT EXISTS incomes (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),          -- UUID 主键，自动生成
+    user_id uuid REFERENCES auth.users(id) NOT NULL,         -- 关联到 Supabase 的 auth.users 表，非空
+    description text NOT NULL,                               -- 收入描述，非空
+    amount numeric NOT NULL,                                 -- 金额，非空
+    category text NOT NULL,                                  -- 类别，非空 (Mongoose 模型中没有指定 enum)
+    subcategory text,                                        -- 子类别，可为空 (Mongoose 模型中是非必需的)
+    date timestamp with time zone DEFAULT now() NOT NULL,    -- 收入日期，非空，默认为当前时间
+    created_at timestamp with time zone DEFAULT now() NOT NULL, -- 创建时间，自动设置
+    updated_at timestamp with time zone DEFAULT now() NOT NULL  -- 更新时间，通过触发器自动更新
+);
+
+-- 3. 为 updated_at 列创建触发器函数，以便在每次更新行时自动更新时间戳
+-- Supabase 提供了默认的 handle_updated_at 函数，你可以直接使用
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. 将触发器附加到 'incomes' 表
+DROP TRIGGER IF EXISTS on_update_incomes_updated_at ON incomes; -- 防止重复创建
+CREATE TRIGGER on_update_incomes_updated_at
+BEFORE UPDATE ON incomes
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 5. 启用行级安全 (Row Level Security, RLS)
+ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
+
+-- 6. 定义 RLS 策略：允许用户查看自己的收入记录
+DROP POLICY IF EXISTS "Users can view their own incomes" ON incomes; -- 防止重复创建
+CREATE POLICY "Users can view their own incomes" ON incomes
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- 7. 定义 RLS 策略：允许用户创建自己的收入记录
+DROP POLICY IF EXISTS "Users can insert their own incomes" ON incomes; -- 防止重复创建
+CREATE POLICY "Users can insert their own incomes" ON incomes
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 8. 定义 RLS 策略：允许用户更新自己的收入记录
+DROP POLICY IF EXISTS "Users can update their own incomes" ON incomes; -- 防止重复创建
+CREATE POLICY "Users can update their own incomes" ON incomes
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 9. 定义 RLS 策略：允许用户删除自己的收入记录
+DROP POLICY IF EXISTS "Users can delete their own incomes" ON incomes; -- 防止重复创建
+CREATE POLICY "Users can delete their own incomes" ON incomes
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- 可选：为常用查询字段创建索引，以提高性能
+CREATE INDEX IF NOT EXISTS idx_incomes_user_id ON incomes (user_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes (date);
+CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes (category);

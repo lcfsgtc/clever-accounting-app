@@ -1,0 +1,27 @@
+/* index.css - 全局样式文件 */
+
+/* 导入 Tailwind CSS 的基础样式、组件样式和实用工具样式 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  这里可以添加您的自定义全局 CSS 样式。
+  例如，设置默认字体、滚动条样式等。
+*/
+
+body {
+  font-family: 'Inter', sans-serif; /* 设置 Inter 字体作为默认字体 */
+  background-color: #f8f9fa; /* 轻微的背景色 */
+  color: #333; /* 默认文本颜色 */
+}
+
+/* 隐藏滚动条但保留滚动功能 */
+body::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
