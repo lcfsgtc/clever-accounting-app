@@ -1,4 +1,4 @@
-name = "api-worker" # 你的 Worker 名称
+name = "cleaverapp" # 你的 Worker 名称
 main = "src/index.js" # Worker 的入口文件
 compatibility_date = "2025-06-24" # 确保此日期是最新或至少在 2024-09-23 之后
 
