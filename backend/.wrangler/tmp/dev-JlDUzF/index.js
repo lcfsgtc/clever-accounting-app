@@ -11915,6 +11915,9 @@ apiRouter.all("*", (request, env2, ctx) => {
 });
 var src_default2 = {
   async fetch(request, env2, ctx) {
+    console.log(`Received request: ${request.method} ${request.url}`);
+    const url = new URL(request.url);
+    console.log(`Parsed Pathname: ${url.pathname}`);
     if (!isSupabaseClientInitialized) {
       try {
         await initializeSupabaseClient(env2);

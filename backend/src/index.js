@@ -108,6 +108,10 @@ apiRouter.all('*', (request, env, ctx) => {
 // 主要的 Worker fetch 处理器。
 export default {
     async fetch(request, env, ctx) {
+        console.log(`Received request: ${request.method} ${request.url}`);
+        // 可选：解析 URL 以查看 pathname
+        const url = new URL(request.url);
+        console.log(`Parsed Pathname: ${url.pathname}`);        
         // --- 1. 确保 Supabase 客户端已初始化 ---
         if (!isSupabaseClientInitialized) {
             try {
