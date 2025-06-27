@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "include": [
+    "/api/*"
+  ],
+  "exclude": [],
+  "routes": [
+    {
+      "pattern": "/api/*",
+      "destination": "https://cleaverapp.lcfsgtc.workers.dev/api/:splat",
+      "method": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
+    }
+  ]
+}
