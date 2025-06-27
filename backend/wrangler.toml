@@ -17,3 +17,5 @@ JWT_SECRET="gdsrsrwq233213"
 #SUPABASE_URL = "{{SUPABASE_URL}}" # 这会从 .env 文件中加载 SUPABASE_URL 的值
 #SUPABASE_KEY = "{{SUPABASE_KEY}}" # 这会从 .env 文件中加载 SUPABASE_KEY 的值
 # SUPABASE_SERVICE_ROLE_KEY = "{{SUPABASE_SERVICE_ROLE_KEY}}" # 如果需要更高权限，请使用此项
+[observability.logs]
+enabled = true
