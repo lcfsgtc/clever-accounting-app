@@ -11,7 +11,7 @@ export default defineConfig({
     // 配置代理，将特定的 API 请求转发到后端 API Worker
     proxy: {
       '/api': {
-        // 目标后端 API Worker 的地址。请根据您的后端部署地址进行调整。
+        // 目标后端 API Worker 的地址。请根据您的后端部署地址进行调整。 
         // 例如，如果您的后端 API Worker 在本地运行于 3000 端口，则为 'http://localhost:3000'。
         // 如果部署到 Cloudflare Worker，这里应该是您的 Worker 的 URL。
         target: 'https://cleaverapp.lcfsgtc.workers.dev/',//'http://localhost:3000', // 假设后端运行在 3000 端口
