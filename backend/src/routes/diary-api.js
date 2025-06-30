@@ -5,7 +5,7 @@ export const diaryRoutes = [
     // 获取日记列表 (GET /api/diaries)
     {
         method: 'GET',
-        pattern: '/api/diaries',
+        pattern: '/diaries',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -112,7 +112,7 @@ export const diaryRoutes = [
     // 获取单个日记详情 (GET /api/diaries/:id)
     {
         method: 'GET',
-        pattern: '/api/diaries/:id',
+        pattern: '/diaries/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -145,7 +145,7 @@ export const diaryRoutes = [
     // 添加日记 (POST /api/diaries)
     {
         method: 'POST',
-        pattern: '/api/diaries',
+        pattern: '/diaries',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -201,7 +201,7 @@ export const diaryRoutes = [
     // 更新日记 (PUT /api/diaries/:id)
     {
         method: 'PUT',
-        pattern: '/api/diaries/:id',
+        pattern: '/diaries/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -283,7 +283,7 @@ export const diaryRoutes = [
     // 删除日记 (DELETE /api/diaries/:id)
     {
         method: 'DELETE',
-        pattern: '/api/diaries/:id',
+        pattern: '/diaries/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -335,7 +335,7 @@ export const diaryRoutes = [
     // 日记统计 (GET /api/diaries/statistics)
     {
         method: 'GET',
-        pattern: '/api/diaries/statistics',
+        pattern: '/diaries/statistics',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -516,7 +516,7 @@ export const diaryRoutes = [
     // 导出日记到 CSV
     {
         method: 'GET',
-        pattern: '/api/diaries/export',
+        pattern: '/diaries/export',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;

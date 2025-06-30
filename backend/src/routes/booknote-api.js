@@ -5,7 +5,7 @@ export const booknoteRoutes = [
     // 获取读书笔记列表 (GET /api/booknotes)
     {
         method: 'GET',
-        pattern: '/api/booknotes',
+        pattern: '/booknotes',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -77,7 +77,7 @@ export const booknoteRoutes = [
     // 新增读书笔记 (POST /api/booknotes)
     {
         method: 'POST',
-        pattern: '/api/booknotes',
+        pattern: '/booknotes',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -127,7 +127,7 @@ export const booknoteRoutes = [
     // 获取单个读书笔记详情 (GET /api/booknotes/:id)
     {
         method: 'GET',
-        pattern: '/api/booknotes/:id',
+        pattern: '/booknotes/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -160,7 +160,7 @@ export const booknoteRoutes = [
     // 更新读书笔记 (PUT /api/booknotes/:id)
     {
         method: 'PUT',
-        pattern: '/api/booknotes/:id',
+        pattern: '/booknotes/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -216,7 +216,7 @@ export const booknoteRoutes = [
     // 删除读书笔记 (DELETE /api/booknotes/:id)
     {
         method: 'DELETE',
-        pattern: '/api/booknotes/:id',
+        pattern: '/booknotes/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -262,7 +262,7 @@ export const booknoteRoutes = [
     // 读书笔记统计 (GET /api/booknotes/statistics)
     {
         method: 'GET',
-        pattern: '/api/booknotes/statistics',
+        pattern: '/booknotes/statistics',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -393,7 +393,7 @@ export const booknoteRoutes = [
     // 导出读书笔记 (GET /api/booknotes/export)
     {
         method: 'GET',
-        pattern: '/api/booknotes/export',
+        pattern: '/booknotes/export',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;

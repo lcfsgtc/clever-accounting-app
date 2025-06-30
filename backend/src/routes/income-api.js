@@ -5,7 +5,7 @@ export const incomeRoutes = [
     // 1. 收入统计 (GET /api/incomes/statistics) - 最具体，放最前面
     {
         method: 'GET',
-        pattern: '/api/incomes/statistics',
+        pattern: '/incomes/statistics',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -213,7 +213,7 @@ export const incomeRoutes = [
     // 2. 导出收入数据 (GET /api/incomes/export) - 其次具体，放在参数路由之前
     {
         method: 'GET',
-        pattern: '/api/incomes/export', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/export', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -290,7 +290,7 @@ export const incomeRoutes = [
     // 3. 获取所有唯一的收入类别 (GET /api/incomes/categories) - 固定路径，放在参数路由之前
     {
         method: 'GET',
-        pattern: '/api/incomes/categories', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/categories', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -323,7 +323,7 @@ export const incomeRoutes = [
     // 4. 获取所有唯一的收入子类别 (GET /api/incomes/subcategories) - 固定路径，放在参数路由之前
     {
         method: 'GET',
-        pattern: '/api/incomes/subcategories', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/subcategories', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -363,7 +363,7 @@ export const incomeRoutes = [
     // 5. 获取所有收入列表 (GET /api/incomes) - 相对通用，但没有参数，放在参数路由之前
     {
         method: 'GET',
-        pattern: '/api/incomes', // <-- 重新加上 /api 前缀
+        pattern: '/incomes', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -430,7 +430,7 @@ export const incomeRoutes = [
     // 6. 新增收入 (POST /api/incomes/add) - POST 请求通常不会被 GET 路径参数路由冲突
     {
         method: 'POST',
-        pattern: '/api/incomes/add', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/add', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -477,7 +477,7 @@ export const incomeRoutes = [
     // 7. 获取单个收入详情 (GET /api/incomes/:id) - 最通用，放最后
     {
         method: 'GET',
-        pattern: '/api/incomes/:id', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/:id', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -509,7 +509,7 @@ export const incomeRoutes = [
     // 8. 更新收入 (PUT /api/incomes/:id) - PUT 和 DELETE 带有 :id 参数，通常放在 GET :id 附近或其后
     {
         method: 'PUT',
-        pattern: '/api/incomes/:id', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/:id', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -561,7 +561,7 @@ export const incomeRoutes = [
     // 9. 删除收入 (DELETE /api/incomes/:id)
     {
         method: 'DELETE',
-        pattern: '/api/incomes/:id', // <-- 重新加上 /api 前缀
+        pattern: '/incomes/:id', // <-- 重新加上 /api 前缀
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;

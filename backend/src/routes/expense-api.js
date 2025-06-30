@@ -5,7 +5,7 @@ export const expenseRoutes = [
     // 获取所有费用 (GET /api/expenses)
     {
         method: 'GET',
-        pattern: '/api/expenses',
+        pattern: '/expenses',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -80,7 +80,7 @@ export const expenseRoutes = [
     // 获取所有唯一的费用类别 (GET /api/expenses/categories)
     {
         method: 'GET',
-        pattern: '/api/expenses/categories',
+        pattern: '/expenses/categories',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -112,7 +112,7 @@ export const expenseRoutes = [
     // 获取单个费用详情 (GET /api/expenses/:id)
     {
         method: 'GET',
-        pattern: '/api/expenses/:id',
+        pattern: '/expenses/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -145,7 +145,7 @@ export const expenseRoutes = [
     // 新增费用 (POST /api/expenses)
     {
         method: 'POST',
-        pattern: '/api/expenses',
+        pattern: '/expenses',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -188,7 +188,7 @@ export const expenseRoutes = [
     // 更新费用 (PUT /api/expenses/:id)
     {
         method: 'PUT',
-        pattern: '/api/expenses/:id',
+        pattern: '/expenses/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -236,7 +236,7 @@ export const expenseRoutes = [
     // 删除费用 (DELETE /api/expenses/:id)
     {
         method: 'DELETE',
-        pattern: '/api/expenses/:id',
+        pattern: '/expenses/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -282,7 +282,7 @@ export const expenseRoutes = [
     // 导出费用数据 (GET /api/expenses/export)
     {
         method: 'GET',
-        pattern: '/api/expenses/export',
+        pattern: '/expenses/export',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -367,7 +367,7 @@ export const expenseRoutes = [
     // 费用统计 (GET /api/expenses/statistics)
     {
         method: 'GET',
-        pattern: '/api/expenses/statistics',
+        pattern: '/expenses/statistics',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;

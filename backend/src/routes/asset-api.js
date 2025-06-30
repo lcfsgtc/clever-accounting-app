@@ -5,7 +5,7 @@ export const assetRoutes = [
     // 获取所有资产 (GET /api/assets)
     {
         method: 'GET',
-        pattern: '/api/assets',
+        pattern: '/assets',
         handler: async (request, env, apiContext) => {
             // 认证检查，确保用户已登录。request.userId 和 request.isAdmin 会在此处设置。
             const authCheck = await apiContext.requireLogin(request, env);
@@ -105,7 +105,7 @@ export const assetRoutes = [
     // 资产统计 (GET /api/assets/statistics)
     {
         method: 'GET',
-        pattern: '/api/assets/statistics',
+        pattern: '/assets/statistics',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -191,7 +191,7 @@ export const assetRoutes = [
     // 导出资产数据 (GET /api/assets/export)
     {
         method: 'GET',
-        pattern: '/api/assets/export',
+        pattern: '/assets/export',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -277,7 +277,7 @@ export const assetRoutes = [
     // 新增资产 (POST /api/assets) - 遵循 RESTful API 命名
     {
         method: 'POST',
-        pattern: '/api/assets',
+        pattern: '/assets',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -326,7 +326,7 @@ export const assetRoutes = [
     // 获取单个资产详情 (GET /api/assets/:id)
     {
         method: 'GET',
-        pattern: '/api/assets/:id',
+        pattern: '/assets/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -360,7 +360,7 @@ export const assetRoutes = [
     // 更新资产 (PUT /api/assets/:id) - 遵循 RESTful API 命名
     {
         method: 'PUT',
-        pattern: '/api/assets/:id',
+        pattern: '/assets/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
@@ -416,7 +416,7 @@ export const assetRoutes = [
     // 删除资产 (DELETE /api/assets/:id) - 遵循 RESTful API 命名
     {
         method: 'DELETE',
-        pattern: '/api/assets/:id',
+        pattern: '/assets/:id',
         handler: async (request, env, apiContext) => {
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
