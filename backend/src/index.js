@@ -19,7 +19,7 @@ import { dashboardRoutes } from './routes/dashboard-api';
 // <--- 新增：定义允许跨域请求的来源列表
 const allowedOrigins = [
     'http://localhost:5173', // 您的本地 Vite 前端开发服务器
-    // 'https://your-production-frontend.com' // 部署后，请在此处添加您的生产环境前端域名
+    'cleaverapp.pages.dev' // 部署后，请在此处添加您的生产环境前端域名
 ];
 
 
