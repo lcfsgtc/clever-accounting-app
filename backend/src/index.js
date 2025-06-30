@@ -14,7 +14,14 @@ import { expenseRoutes } from './routes/expense-api';
 import { assetRoutes } from './routes/asset-api';
 import { booknoteRoutes } from './routes/booknote-api';
 import { diaryRoutes } from './routes/diary-api';
-import { dashboardRoutes } from './routes/dashboard-api'; // <--- 修改：导入 dashboardRoutes (复数)
+import { dashboardRoutes } from './routes/dashboard-api';
+
+// <--- 新增：定义允许跨域请求的来源列表
+const allowedOrigins = [
+    'http://localhost:5173', // 您的本地 Vite 前端开发服务器
+    // 'https://your-production-frontend.com' // 部署后，请在此处添加您的生产环境前端域名
+];
+
 
 // 定义全局变量用于 Supabase 客户端和路由器实例
 let supabaseClient = null;
@@ -23,66 +30,34 @@ let isSupabaseClientInitialized = false;
 // 将 apiRouter 定义在模块的顶层作用域，只初始化一次
 const apiRouter = Router();
 
-// --- Supabase 客户端初始化函数 (保持不变，但现在由 apiContext 管理) ---
-
-/**
- * 初始化 Supabase 客户端。此函数应只被调用一次。
- * 它从 Worker 运行时提供的环境变量中检索 SUPABASE_URL 和 SUPABASE_KEY。
- * @param {object} env - Worker 运行时提供的环境变量对象。
- * @returns {object} 已初始化的 Supabase 客户端实例。
- * @throws {Error} 如果 SUPABASE_URL 或 SUPABASE_KEY 缺失或无效。
- */
+// --- Supabase 客户端初始化函数 (保持不变) ---
 async function initializeSupabaseClient(env) {
     if (isSupabaseClientInitialized && supabaseClient) {
-        console.log('Supabase 客户端已初始化。');
         return supabaseClient;
     }
-
     console.log('尝试初始化 Supabase 客户端...');
     try {
         const { SUPABASE_URL, SUPABASE_KEY } = env;
-
         if (!SUPABASE_URL || !SUPABASE_KEY) {
-            const missingVars = [];
-            if (!SUPABASE_URL) missingVars.push('SUPABASE_URL');
-            if (!SUPABASE_KEY) missingVars.push('SUPABASE_KEY');
-            const errorMessage = `缺少必需的环境变量: ${missingVars.join(', ')}。`;
-            console.error(errorMessage);
-            throw new Error(errorMessage);
+            throw new Error(`缺少必需的环境变量: SUPABASE_URL, SUPABASE_KEY。`);
         }
-
-        try {
-            new URL(SUPABASE_URL);
-        } catch (e) {
-            const errorMessage = `SUPABASE_URL 格式无效: "${SUPABASE_URL}"。请确保它是有效的 URL (例如，https://your-project.supabase.co)。`;
-            console.error(errorMessage, e);
-            throw new Error(errorMessage);
-        }
-
-        // 创建 Supabase 客户端
         const client = createClient(SUPABASE_URL, SUPABASE_KEY);
-        supabaseClient = client; // 设置全局变量
-        apiContext.setSupabaseClient(client); // <--- 将 Supabase 客户端设置到 apiContext
+        supabaseClient = client;
+        apiContext.setSupabaseClient(client);
         isSupabaseClientInitialized = true;
         console.log('Supabase 客户端初始化成功。');
         return client;
     } catch (error) {
         console.error('Supabase 客户端初始化失败:', error.message);
-        console.error('Supabase 初始化完整错误对象:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-        throw new Error(`Supabase 客户端初始化失败。请检查 SUPABASE_URL 和 SUPABASE_KEY: ${error.message}`);
+        throw new Error(`Supabase 客户端初始化失败: ${error.message}`);
     }
 }
 
-
-// --- 注册所有 API 路由 ---
-// 这部分代码在 Worker 启动时运行一次
-
-// 辅助函数，用于统一注册路由
+// --- 注册所有 API 路由 (保持不变) ---
 const registerRoutes = (routesArray) => {
     routesArray.forEach(route => {
         apiRouter[route.method.toLowerCase()](route.pattern, async (request, env, ctx) => {
-            // apiContext.setSupabaseClient(supabaseClient); // <--- 移除：Supabase 客户端已在 initializeSupabaseClient 中设置到 apiContext
-            return route.handler(request, env, apiContext); // 传入 apiContext
+            return route.handler(request, env, apiContext);
         });
     });
 };
@@ -93,10 +68,9 @@ registerRoutes(expenseRoutes);
 registerRoutes(assetRoutes);
 registerRoutes(booknoteRoutes);
 registerRoutes(diaryRoutes);
-registerRoutes(dashboardRoutes); // <--- 修改：使用 dashboardRoutes (复数)
+registerRoutes(dashboardRoutes);
 
-
-// Fallback 路由：如果所有其他路由都不匹配，则返回 404
+// Fallback 路由 (保持不变)
 apiRouter.all('*', (request, env, ctx) => {
     console.warn(`未匹配到路由: ${request.method} ${request.url}`);
     return new Response(JSON.stringify({ message: 'API 路由未找到', path: request.url }), {
@@ -109,44 +83,64 @@ apiRouter.all('*', (request, env, ctx) => {
 export default {
     async fetch(request, env, ctx) {
         console.log(`Received request: ${request.method} ${request.url}`);
-        // 可选：解析 URL 以查看 pathname
-        const url = new URL(request.url);
-        console.log(`Parsed Pathname: ${url.pathname}`);        
-        // --- 1. 确保 Supabase 客户端已初始化 ---
+        
+        // <--- 新增：CORS 预处理逻辑
+        const origin = request.headers.get('Origin');
+        const isOriginAllowed = origin && allowedOrigins.includes(origin);
+        
+        // <--- 新增：预设 CORS 响应头
+        // 只有当来源被允许时，我们才会使用这些头部
+        const corsHeaders = {
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '86400', // 24 hours
+            'Access-Control-Allow-Credentials': 'true', // <--- 新增：允许发送凭据 (如 Cookie 或 Authorization 头)
+        };
+        if (isOriginAllowed) {
+            corsHeaders['Access-Control-Allow-Origin'] = origin; // <--- 修改：动态设置允许的来源
+        }
+
+        // --- 1. 确保 Supabase 客户端已初始化 (保持不变) ---
         if (!isSupabaseClientInitialized) {
             try {
                 await initializeSupabaseClient(env);
             } catch (initError) {
                 console.error('初始服务设置失败:', initError);
-                return new Response(JSON.stringify({
+                // <--- 修改：为错误响应也添加 CORS 头部
+                const response = new Response(JSON.stringify({
                     message: `服务不可用: 初始化后端服务失败。${initError.message}`,
                     details: initError.stack
                 }), {
                     status: 503,
                     headers: { 'Content-Type': 'application/json' }
                 });
+                if (isOriginAllowed) {
+                    Object.entries(corsHeaders).forEach(([key, value]) => response.headers.set(key, value));
+                }
+                return response;
             }
         }
 
         // --- 2. 处理 CORS 预检请求 (OPTIONS 方法) ---
+        // <--- 修改：使用新的 CORS 逻辑
         if (request.method === 'OPTIONS') {
-            return new Response(null, {
-                status: 204, // No Content
-                headers: {
-                    'Access-Control-Allow-Origin': '*', // 生产环境请限制为您的前端域名
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                    'Access-Control-Max-Age': '86400', // 24 hours
-                },
-            });
+            if (isOriginAllowed) {
+                return new Response(null, {
+                    status: 204, // No Content
+                    headers: corsHeaders,
+                });
+            } else {
+                // 如果来源不允许，返回一个简单的文本响应或错误
+                return new Response('CORS policy does not allow this origin', { status: 403 });
+            }
         }
 
-        // --- 3. 让路由器处理传入请求，并添加全局 CORS 头部 ---
+        // --- 3. 让路由器处理传入请求 ---
+        // <--- 修改：移除此处的 CORS 头部添加逻辑，统一在最后处理
         let response;
         try {
             response = await apiRouter.handle(request, env, ctx);
         } catch (error) {
-            // 这是捕获所有未被路由处理器内部 catch 块处理的运行时错误
             console.error('未处理的 Worker 运行时错误:', error);
             response = new Response(JSON.stringify({
                 message: '后端发生未处理的错误',
@@ -158,14 +152,24 @@ export default {
             });
         }
 
-        // --- 4. 添加全局 CORS 头部到所有响应 ---
-        // 确保 response 存在且 headers 可设置
-        if (response && response.headers) {
-            response.headers.set('Access-Control-Allow-Origin', '*'); // 生产环境请限制为您的前端域名
-            response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        // --- 4. 添加全局 CORS 头部到所有最终响应 ---
+        // <--- 修改：这是最终添加 CORS 头部的唯一地方
+        if (isOriginAllowed) {
+            // 创建一个可变的 Headers 对象，以防原始 response 的 headers 是不可变的
+            const finalHeaders = new Headers(response.headers);
+            // 添加我们预设的所有 CORS 头部
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+                finalHeaders.set(key, value);
+            });
+            // 返回一个带有新头部的全新 Response 对象
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
+                headers: finalHeaders,
+            });
         }
-
+        
+        // 如果来源不被允许，则返回原始响应（浏览器会因缺少CORS头而拒绝它）
         return response;
     },
 };
