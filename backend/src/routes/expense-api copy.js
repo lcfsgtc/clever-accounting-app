@@ -1,7 +1,8 @@
-// routes/expense-api.js
+// routes/expense-api.js - 修正后的费用 API 路由文件 (Supabase 版本)
 
+// 导出路由数组，供 src/index.js 导入
 export const expenseRoutes = [
-    // 获取所有费用 (GET /api/expenses) - (此部分代码无需修改)
+    // 获取所有费用 (GET /api/expenses)
     {
         method: 'GET',
         pattern: '/expenses',
@@ -10,12 +11,10 @@ export const expenseRoutes = [
             if (authCheck) return authCheck;
 
             const userId = request.userId;
-            const url = new URL(request.url);
-            const queryParams = apiContext.parseQuery(url.search);
+            const queryParams = apiContext.parseQuery(new URL(request.url).search.substring(1));
 
             const {
                 category,
-                subcategory, // 添加 subcategory 筛选
                 minAmount,
                 maxAmount,
                 startDate,
@@ -26,15 +25,22 @@ export const expenseRoutes = [
 
             let query = apiContext.supabase
                 .from('expenses')
-                .select('*', { count: 'exact' })
-                .eq('user_id', userId);
+                .select('*', { count: 'exact' }) // Request data and total count
+                .eq('user_id', userId); // Enforce filtering by user ID
 
-            // 应用筛选
-            if (category) query = query.eq('category', category);
-            if (subcategory) query = query.eq('subcategory', subcategory); // 添加对 subcategory 的支持
-            if (minAmount) query = query.gte('amount', parseFloat(minAmount));
-            if (maxAmount) query = query.lte('amount', parseFloat(maxAmount));
-            if (startDate) query = query.gte('date', new Date(startDate).toISOString());
+            // Apply filters
+            if (category) {
+                query = query.eq('category', category);
+            }
+            if (minAmount) {
+                query = query.gte('amount', parseFloat(minAmount));
+            }
+            if (maxAmount) {
+                query = query.lte('amount', parseFloat(maxAmount));
+            }
+            if (startDate) {
+                query = query.gte('date', new Date(startDate).toISOString());
+            }
             if (endDate) {
                 const endOfDay = new Date(endDate);
                 endOfDay.setUTCHours(23, 59, 59, 999);
@@ -52,23 +58,26 @@ export const expenseRoutes = [
                     .order('created_at', { ascending: false })
                     .range(startRange, endRange);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error fetching expenses from Supabase:', error);
+                    return new Response(JSON.stringify({ message: 'Server Error fetching expenses', details: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+                }
 
                 return new Response(JSON.stringify({
                     expenses,
                     totalCount: totalCount || 0,
                     currentPage: parsedPage,
                     totalPages: Math.ceil((totalCount || 0) / parsedLimit),
+                    limit: parsedLimit
                 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
             } catch (err) {
-                console.error('Error fetching expenses:', err);
-                return new Response(JSON.stringify({ message: '获取支出记录时发生服务器错误', details: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+                console.error('Error fetching expenses (general catch):', err);
+                return new Response(JSON.stringify({ message: 'Server Error fetching expenses' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
             }
         }
     },
 
-    // 获取所有唯一的费用类别 (GET /api/expenses/categories) - (已修正)
+    // 获取所有唯一的费用类别 (GET /api/expenses/categories)
     {
         method: 'GET',
         pattern: '/expenses/categories',
@@ -76,71 +85,30 @@ export const expenseRoutes = [
             const authCheck = await apiContext.requireLogin(request, env);
             if (authCheck) return authCheck;
 
+            const userId = request.userId;
+
             try {
                 const { data, error } = await apiContext.supabase
                     .from('expenses')
                     .select('category')
-                    .eq('user_id', request.userId)
-                    // 修正: 使用 .or() 来组合多个 'not' 条件
+                    .eq('user_id', userId)
                     .not('category', 'is', null)
-                    .not('category', 'eq', '');
+                    .not('category', 'eq', ''); // Ensure category is not null or empty
 
-
-                if (error) throw error;
-
-                // 使用 Set 来确保唯一性
-                const categories = [...new Set(data.map(item => item.category))].sort();
-                return new Response(JSON.stringify(categories), { status: 200, headers: { 'Content-Type': 'application/json' } });
-            } catch (err) {
-                console.error('Error fetching expense categories:', err);
-                return new Response(JSON.stringify({ message: '获取支出分类时发生服务器错误', details: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-            }
-        }
-    },
-
-    // 获取唯一的费用子类别 (GET /api/expenses/subcategories) - (新增路由)
-    {
-        method: 'GET',
-        pattern: '/expenses/subcategories',
-        handler: async (request, env, apiContext) => {
-            const authCheck = await apiContext.requireLogin(request, env);
-            if (authCheck) return authCheck;
-
-            const url = new URL(request.url);
-            const queryParams = apiContext.parseQuery(url.search);
-            const { category } = queryParams;
-
-            try {
-                let query = apiContext.supabase
-                    .from('expenses')
-                    .select('subcategory')
-                    .eq('user_id', request.userId)
-                    .not('subcategory', 'is', null)
-                    .not('subcategory', 'eq', '');
-
-                // 如果提供了 category 参数，则根据该大类进行筛选
-                if (category) {
-                    query = query.eq('category', category);
+                if (error) {
+                    console.error('Error fetching expense categories from Supabase:', error);
+                    return new Response(JSON.stringify({ message: 'Server Error fetching expense categories', details: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
                 }
 
-                const { data, error } = await query;
-
-                if (error) throw error;
-
-                const subcategories = [...new Set(data.map(item => item.subcategory))].sort();
-                return new Response(JSON.stringify(subcategories), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                const categories = [...new Set(data.map(item => item.category))].sort(); // Get unique and sort
+                return new Response(JSON.stringify(categories), { status: 200, headers: { 'Content-Type': 'application/json' } });
             } catch (err) {
-                console.error('Error fetching expense subcategories:', err);
-                return new Response(JSON.stringify({ message: '获取支出子分类时发生服务器错误', details: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+                console.error('Error fetching expense categories (general catch):', err);
+                return new Response(JSON.stringify({ message: 'Server Error fetching expense categories' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
             }
         }
     },
 
-    // --- 其他路由 (GET by ID, POST, PUT, DELETE, export, statistics) ---
-    // (此处省略您已有的、未作修改的其他路由代码，以保持简洁)
-    // ...
-    // 请确保将您文件中的其他路由处理器粘贴回此处
-    // ...
     // 获取单个费用详情 (GET /api/expenses/:id)
     {
         method: 'GET',
@@ -366,8 +334,9 @@ export const expenseRoutes = [
                 if (!expensesToExport || expensesToExport.length === 0) {
                     return new Response(JSON.stringify({ message: 'No expenses found for export with applied filters.' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
                 }
-                 // 使用 apiContext.jsonToCsv
-                 const fields = [
+
+                // Map Supabase snake_case fields to desired CSV labels
+                const fields = [
                     { label: '描述', value: 'description' },
                     { label: '金额', value: 'amount' },
                     { label: '类别', value: 'category' },
@@ -376,8 +345,10 @@ export const expenseRoutes = [
                     { label: '创建时间', value: row => row.created_at ? new Date(row.created_at).toLocaleString('zh-CN') : '' },
                     { label: '更新时间', value: row => row.updated_at ? new Date(row.updated_at).toLocaleString('zh-CN') : '' }
                 ];
+                const opts = { fields };
 
-                const csv = apiContext.jsonToCsv(expensesToExport, fields);
+                const parser = new apiContext.Json2csvParser(opts);
+                const csv = parser.parse(expensesToExport); // Data is already in correct format from Supabase
 
                 return new Response(csv, {
                     status: 200,
@@ -403,7 +374,7 @@ export const expenseRoutes = [
 
             const userId = request.userId;
             const queryParams = apiContext.parseQuery(new URL(request.url).search.substring(1));
-            const { startDate, endDate, category, subcategory, minAmount, maxAmount, period, categoryType, year } = queryParams;
+            const { startDate, endDate, category, subcategory, minAmount, maxAmount, period, year } = queryParams;
 
             let query = apiContext.supabase
                 .from('expenses')
@@ -453,33 +424,35 @@ export const expenseRoutes = [
                 }
 
                 const statisticsMap = new Map();
-                
+                let totalOverallAmount = 0;
+
                 if (expenses) {
                     expenses.forEach(expense => {
+                        totalOverallAmount += expense.amount; // Accumulate overall total
+
                         let groupKey;
                         const expenseDate = new Date(expense.date);
-                         // Determine the grouping key based on `period` and `categoryType`
-                         if (period === 'year' && !categoryType) {
-                            groupKey = expenseDate.getFullYear();
-                        } else if (period === 'month' && !categoryType) {
-                            groupKey = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
-                        } else if (categoryType === 'category' && !period) {
-                            groupKey = expense.category;
-                        } else if (categoryType === 'subcategory' && !period) {
-                            groupKey = expense.subcategory;
-                        } else if (categoryType === 'categoryAndSubcategory' && !period) {
-                            groupKey = `${expense.category} - ${expense.subcategory}`;
-                        } else if (categoryType && period) {
-                            // Combined grouping (e.g., by category per year)
-                            const timePart = period === 'year' ? expenseDate.getFullYear() : `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
-                            if (categoryType === 'category') groupKey = `${expense.category} - ${timePart}`;
-                            else if (categoryType === 'subcategory') groupKey = `${expense.subcategory} - ${timePart}`;
-                            else if (categoryType === 'categoryAndSubcategory') groupKey = `${expense.category} - ${expense.subcategory} - ${timePart}`;
-                            else groupKey = timePart; // fallback to time if categoryType is invalid
-                        } else {
-                            groupKey = '总计';
-                        }
 
+                        switch (period) {
+                            case 'category':
+                                groupKey = expense.category;
+                                break;
+                            case 'subcategory':
+                                groupKey = expense.subcategory;
+                                break;
+                            case 'categoryAndSubcategory':
+                                groupKey = `${expense.category} - ${expense.subcategory}`;
+                                break;
+                            case 'year':
+                                groupKey = expenseDate.getFullYear().toString();
+                                break;
+                            case 'month':
+                                groupKey = `${expenseDate.getFullYear()}-${(expenseDate.getMonth() + 1).toString().padStart(2, '0')}`;
+                                break;
+                            default:
+                                // No specific grouping, total amount is accumulated above
+                                return;
+                        }
 
                         if (!statisticsMap.has(groupKey)) {
                             statisticsMap.set(groupKey, 0);
@@ -489,8 +462,7 @@ export const expenseRoutes = [
                 }
 
                 let statistics = [];
-                if (!period && !categoryType) {
-                    const totalOverallAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+                if (period === '') { // Overall total
                     statistics = [{ _id: '总计', totalAmount: parseFloat(totalOverallAmount.toFixed(2)) }];
                 } else {
                     statistics = Array.from(statisticsMap).map(([key, amount]) => ({
@@ -498,11 +470,11 @@ export const expenseRoutes = [
                         totalAmount: parseFloat(amount.toFixed(2))
                     }));
 
-                    // Sort based on period or amount
+                    // Sort based on period
                     if (period === 'year' || period === 'month') {
                         statistics.sort((a, b) => String(a._id).localeCompare(String(b._id)));
-                    } else if (categoryType) { // sort by amount if grouping by category
-                        statistics.sort((a, b) => b.totalAmount - a.totalAmount); 
+                    } else if (period === 'category' || period === 'subcategory' || period === 'categoryAndSubcategory') {
+                        statistics.sort((a, b) => b.totalAmount - a.totalAmount); // Sort by amount descending
                     }
                 }
 
@@ -544,5 +516,5 @@ export const expenseRoutes = [
                 return new Response(JSON.stringify({ message: 'Server Error fetching expense statistics' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
             }
         }
-    }
+    },
 ];
