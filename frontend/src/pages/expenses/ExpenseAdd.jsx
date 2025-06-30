@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置，通常与此文件在同一目录下
-import  Button  from '@/components/ui/button';
-import  Input  from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import  Label  from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Save, XCircle, DollarSign, Tag, Calendar, LayoutGrid } from 'lucide-react'; // Icons
+// src/pages/expenses/ExpenseAdd.jsx
 
-// Helper function to get today's date in YYYY-MM-DD format
+import React, { useState } from 'react';
+// 1. 导入 apiClient
+import apiClient from '../../api/apiClient'; // 调整路径以匹配您的项目结构
+
+// 导入UI组件 (保持不变)
+import MainLayout from '../MainLayout.jsx';
+import Button from '@/components/ui/button';
+import Input from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Label from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Save, XCircle, DollarSign, Tag, Calendar, LayoutGrid, CheckCircle } from 'lucide-react'; // 引入CheckCircle
+
+// Helper function (保持不变)
 const getTodayDate = () => {
   return new Date().toISOString().split('T')[0];
 };
@@ -17,25 +23,23 @@ const ExpenseAdd = () => {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
-  const [date, setDate] = useState(getTodayDate()); // Default to today's date
+  const [date, setDate] = useState(getTodayDate());
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null); // { type: 'success' | 'error', text: string }
+  const [message, setMessage] = useState(null);
 
-  // Hardcoded categories as in original EJS, these could be fetched from an API if dynamic
   const categories = ['衣', '食', '住', '行', '医', '娱', '人情', '其他'];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null); // Clear previous messages
+    setMessage(null);
 
-    // Basic frontend validation
+    // 前端验证逻辑 (保持不变)
     if (!description || !amount || !category || !subcategory || !date) {
       setMessage({ type: 'error', text: '所有字段都是必填项。' });
       setLoading(false);
       return;
     }
-
     if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       setMessage({ type: 'error', text: '金额必须是大于0的有效数字。' });
       setLoading(false);
@@ -43,60 +47,55 @@ const ExpenseAdd = () => {
     }
 
     try {
-      const response = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Assuming JWT is stored in localStorage
-        },
-        body: JSON.stringify({
-          description,
-          amount: parseFloat(amount), // Convert amount to number
-          category,
-          subcategory,
-          date,
-        }),
+      // 2. 使用 apiClient 发起 POST 请求
+      //    注意API端点是 '/expenses'
+      const response = await apiClient.post('/expenses', {
+        description,
+        amount: parseFloat(amount),
+        category,
+        subcategory,
+        date,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '添加支出记录失败。');
-      }
-
-      setMessage({ type: 'success', text: data.message || '支出记录添加成功！正在跳转至支出列表...' });
-      // Clear form fields after successful submission
+      // 3. 从 response.data 获取成功消息
+      setMessage({ type: 'success', text: response.data.message || '支出记录添加成功！正在跳转...' });
+      
+      // 清空表单
       setDescription('');
       setAmount('');
       setCategory('');
       setSubcategory('');
-      setDate(getTodayDate()); // Reset to today's date
+      setDate(getTodayDate());
 
-      // Optionally redirect after a short delay
+      // 4. 使用 replace 重定向
       setTimeout(() => {
-        window.location.href = '/expenses'; // Redirect to expense list
+        window.location.replace('/expenses');
       }, 1500);
 
     } catch (err) {
       console.error('Add expense error:', err);
-      setMessage({ type: 'error', text: err.message || '添加支出记录失败，请稍后再试。' });
+      // 5. 从 Axios 错误对象中获取后端返回的错误信息
+      const errorMessage = err.response?.data?.message || err.message || '添加支出记录失败，请稍后再试。';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
     }
   };
 
+  // UI 部分 (JSX) 保持不变，只为消息提示添加图标
   return (
-    <MainLayout pageTitle="添加支出记录"> {/* 使用 MainLayout 包装组件 */}
+    <MainLayout pageTitle="添加支出记录">
       <div className="container mx-auto p-4 md:p-8 lg:p-12 flex items-center justify-center min-h-[calc(100vh-100px)]">
         <Card className="w-full max-w-lg shadow-xl rounded-xl overflow-hidden">
-          <CardHeader className="bg-blue-600 text-white text-center py-5">
+          <CardHeader className="bg-red-600 text-white text-center py-5">
             <CardTitle className="text-2xl font-bold flex items-center justify-center">
               <Plus className="mr-2 h-7 w-7" />添加支出记录
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 md:p-8">
             {message && (
-              <div className={`p-3 rounded-md mb-4 text-sm ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />}
                 {message.text}
               </div>
             )}
@@ -109,11 +108,11 @@ const ExpenseAdd = () => {
                 <Input
                   type="text"
                   id="description"
-                  name="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                  placeholder="例如：午餐"
                 />
               </div>
               <div>
@@ -123,13 +122,13 @@ const ExpenseAdd = () => {
                 <Input
                   type="number"
                   id="amount"
-                  name="amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   step="0.01"
                   min="0.01"
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                  placeholder="请输入支出金额"
                 />
               </div>
               <div>
@@ -139,13 +138,12 @@ const ExpenseAdd = () => {
                 <Select
                   value={category}
                   onValueChange={setCategory}
-                  required // HTML required attribute
+                  required
                 >
                   <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
                     <SelectValue placeholder="请选择大类" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">请选择大类</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
@@ -159,11 +157,11 @@ const ExpenseAdd = () => {
                 <Input
                   type="text"
                   id="subcategory"
-                  name="subcategory"
                   value={subcategory}
                   onChange={(e) => setSubcategory(e.target.value)}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                  placeholder="例如：肯德基"
                 />
               </div>
               <div>
@@ -173,20 +171,19 @@ const ExpenseAdd = () => {
                 <Input
                   type="date"
                   id="date"
-                  name="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                 />
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                <Button type="submit" className="flex-grow bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={loading}>
-                  <Save className="mr-2 h-5 w-5" />{loading ? '保存中...' : '保存'}
+                <Button type="submit" className="flex-grow bg-red-600 hover:bg-red-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={loading}>
+                  <Save className="mr-2 h-5 w-5" />{loading ? '保存中...' : '确认添加'}
                 </Button>
                 <Button type="button" onClick={() => window.location.href = '/expenses'} variant="outline" className="flex-grow text-gray-700 border-gray-300 hover:bg-gray-100 rounded-md shadow-sm py-2.5 text-base">
-                  <XCircle className="mr-2 h-5 w-5" />取消
+                  <XCircle className="mr-2 h-5 w-5" />返回列表
                 </Button>
               </div>
             </form>

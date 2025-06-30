@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置，通常与此文件在同一目录下
 import  Button  from '@/components/ui/button';
-import Input  from '@/components/ui/input';
+import  Input  from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import  Label  from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Save, XCircle, DollarSign, Tag, Calendar, LayoutGrid, CheckCircle } from 'lucide-react'; // Icons
+import { Plus, Save, XCircle, DollarSign, Tag, Calendar, LayoutGrid } from 'lucide-react'; // Icons
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
   return new Date().toISOString().split('T')[0];
 };
 
-const IncomeAdd = () => {
-  console.log('IncomeAdd component is being rendered.'); 
+const ExpenseAdd = () => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -22,8 +21,8 @@ const IncomeAdd = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null); // { type: 'success' | 'error', text: string }
 
-  // Hardcoded categories, these could be fetched from an API if dynamic
-  const categories = ['工资', '奖金', '投资收益', '兼职收入', '礼金', '其他'];
+  // Hardcoded categories as in original EJS, these could be fetched from an API if dynamic
+  const categories = ['衣', '食', '住', '行', '医', '娱', '人情', '其他'];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,12 +43,11 @@ const IncomeAdd = () => {
     }
 
     try {
-      const token = localStorage.getItem('authToken'); // Get JWT from local storage
-      const response = await fetch('/api/incomes/add', {
+      const response = await fetch('/api/expenses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Send JWT for authentication
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Assuming JWT is stored in localStorage
         },
         body: JSON.stringify({
           description,
@@ -63,10 +61,10 @@ const IncomeAdd = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || '添加收入记录失败。');
+        throw new Error(data.message || '添加支出记录失败。');
       }
 
-      setMessage({ type: 'success', text: data.message || '收入记录添加成功！正在跳转至收入列表...' });
+      setMessage({ type: 'success', text: data.message || '支出记录添加成功！正在跳转至支出列表...' });
       // Clear form fields after successful submission
       setDescription('');
       setAmount('');
@@ -76,30 +74,29 @@ const IncomeAdd = () => {
 
       // Optionally redirect after a short delay
       setTimeout(() => {
-        window.location.href = '/incomes'; // Redirect to income list
+        window.location.href = '/expenses'; // Redirect to expense list
       }, 1500);
 
     } catch (err) {
-      console.error('Add income error:', err);
-      setMessage({ type: 'error', text: err.message || '添加收入记录失败，请稍后再试。' });
+      console.error('Add expense error:', err);
+      setMessage({ type: 'error', text: err.message || '添加支出记录失败，请稍后再试。' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <MainLayout pageTitle="添加收入记录"> {/* 使用 MainLayout 包装组件 */}
+    <MainLayout pageTitle="添加支出记录"> {/* 使用 MainLayout 包装组件 */}
       <div className="container mx-auto p-4 md:p-8 lg:p-12 flex items-center justify-center min-h-[calc(100vh-100px)]">
         <Card className="w-full max-w-lg shadow-xl rounded-xl overflow-hidden">
           <CardHeader className="bg-blue-600 text-white text-center py-5">
             <CardTitle className="text-2xl font-bold flex items-center justify-center">
-              <Plus className="mr-2 h-7 w-7" />添加收入记录
+              <Plus className="mr-2 h-7 w-7" />添加支出记录
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 md:p-8">
             {message && (
-              <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />}
+              <div className={`p-3 rounded-md mb-4 text-sm ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                 {message.text}
               </div>
             )}
@@ -142,7 +139,7 @@ const IncomeAdd = () => {
                 <Select
                   value={category}
                   onValueChange={setCategory}
-                  required
+                  required // HTML required attribute
                 >
                   <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
                     <SelectValue placeholder="请选择大类" />
@@ -188,7 +185,7 @@ const IncomeAdd = () => {
                 <Button type="submit" className="flex-grow bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={loading}>
                   <Save className="mr-2 h-5 w-5" />{loading ? '保存中...' : '保存'}
                 </Button>
-                <Button type="button" onClick={() => window.location.href = '/incomes'} variant="outline" className="flex-grow text-gray-700 border-gray-300 hover:bg-gray-100 rounded-md shadow-sm py-2.5 text-base">
+                <Button type="button" onClick={() => window.location.href = '/expenses'} variant="outline" className="flex-grow text-gray-700 border-gray-300 hover:bg-gray-100 rounded-md shadow-sm py-2.5 text-base">
                   <XCircle className="mr-2 h-5 w-5" />取消
                 </Button>
               </div>
@@ -200,4 +197,4 @@ const IncomeAdd = () => {
   );
 };
 
-export default IncomeAdd;
+export default ExpenseAdd;

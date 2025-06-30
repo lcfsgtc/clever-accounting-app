@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import MainLayout from '../MainLayout.jsx';
+import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置
 import {
   Table,
   TableBody,
@@ -7,18 +7,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import Button from '@/components/ui/button';
-import Input from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Filter, BarChart, Calendar, Tag, DollarSign, RedoDot, ArrowLeft, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
+} from '@/components/ui/table'; // Assuming shadcn/ui table components
+import Button  from '@/components/ui/button'; // Assuming shadcn/ui button component
+import  Input  from '@/components/ui/input'; // Assuming shadcn/ui input component
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Assuming shadcn/ui select component
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming shadcn/ui card component
+import { Filter, BarChart, Calendar, Tag, DollarSign, RedoDot, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'; // Using lucide-react for icons
 
 // Helper function to format date for input fields (YYYY-MM-DD)
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
-  // Ensure date is treated as UTC to prevent timezone issues with YYYY-MM-DD
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -28,63 +27,55 @@ const formatDateForInput = (dateString) => {
 // Helper function to parse URL search parameters for initial state
 const getInitialFilters = () => {
   const params = new URLSearchParams(window.location.search);
-  // Default year to current year if not present in URL
-  const currentYear = new Date().getFullYear().toString();
   return {
     startDate: params.get('startDate') || '',
     endDate: params.get('endDate') || '',
-    category: params.get('category') || '',
-    subcategory: params.get('subcategory') || '',
+    category: params.get('category') || '', // Individual category filter
+    subcategory: params.get('subcategory') || '', // Individual subcategory filter
     minAmount: params.get('minAmount') || '',
     maxAmount: params.get('maxAmount') || '',
-    period: params.get('period') || '',
-    categoryType: params.get('categoryType') || '',
-    selectedYear: params.get('year') || currentYear, // Use currentYear as default
+    period: params.get('period') || '', // Grouping type for time: total, year, month
+    categoryType: params.get('categoryType') || '', // Grouping type for categories: category, subcategory, categoryAndSubcategory
+    selectedYear: params.get('year') || new Date().getFullYear().toString(), // Default to current year for month grouping
   };
 };
 
-const IncomeStatistics = () => {
+const ExpenseStatistics = () => {
   const [filters, setFilters] = useState(getInitialFilters());
   const [statisticsData, setStatisticsData] = useState([]);
   const [distinctCategories, setDistinctCategories] = useState([]);
   const [distinctSubcategories, setDistinctSubcategories] = useState([]);
   const [distinctYears, setDistinctYears] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState(null);
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
-  const [isStatsCollapsed, setIsStatsCollapsed] = useState(false);
+  const [message, setMessage] = useState(null); // For success/error messages
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false); // Start expanded for better UX
+  const [isStatsCollapsed, setIsStatsCollapsed] = useState(false); // Start expanded for better UX
 
-  // This function generates the query string based on the current filters state
-  const buildQueryString = useCallback((currentFilters) => {
+  const buildQueryString = useCallback(() => {
     const params = new URLSearchParams();
-    if (currentFilters.startDate) params.append('startDate', currentFilters.startDate);
-    if (currentFilters.endDate) params.append('endDate', currentFilters.endDate);
-    if (currentFilters.category) params.append('category', currentFilters.category);
-    if (currentFilters.subcategory) params.append('subcategory', currentFilters.subcategory);
-    if (currentFilters.minAmount) params.append('minAmount', currentFilters.minAmount);
-    if (currentFilters.maxAmount) params.append('maxAmount', currentFilters.maxAmount);
-    if (currentFilters.period) params.append('period', currentFilters.period);
-    if (currentFilters.categoryType) params.append('categoryType', currentFilters.categoryType);
-    // Only append year if period is 'month' and year is selected
-    if (currentFilters.period === 'month' && currentFilters.selectedYear) {
-      params.append('year', currentFilters.selectedYear);
-    }
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.category) params.append('category', filters.category);
+    if (filters.subcategory) params.append('subcategory', filters.subcategory);
+    if (filters.minAmount) params.append('minAmount', filters.minAmount);
+    if (filters.maxAmount) params.append('maxAmount', filters.maxAmount);
+    if (filters.period) params.append('period', filters.period);
+    if (filters.categoryType) params.append('categoryType', filters.categoryType);
+    if (filters.period === 'month' && filters.selectedYear) params.append('year', filters.selectedYear);
     return params.toString();
-  }, []); // No dependencies needed here as it takes filters as an argument
+  }, [filters]);
 
-  // This function fetches data based on the *current* filters state
   const fetchStatistics = useCallback(async () => {
     setLoading(true);
     setMessage(null);
 
-    // Pass the current filters to buildQueryString
-    const queryString = buildQueryString(filters);
+    const queryString = buildQueryString();
 
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/incomes/statistics?${queryString}`, {
+      const token = localStorage.getItem('authToken'); // Get JWT from local storage
+      const response = await fetch(`/api/expenses/statistics?${queryString}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}` // Send JWT for authentication
         }
       });
       const data = await response.json();
@@ -98,24 +89,21 @@ const IncomeStatistics = () => {
       setDistinctSubcategories(data.distinctSubcategories || []);
       setDistinctYears(data.distinctYears || []);
 
-      // Update URL only if the query string has changed
+      // Update URL without full page reload
       const newUrl = `${window.location.pathname}?${queryString}`;
-      if (window.location.search !== `?${queryString}`) {
-        window.history.pushState({ path: newUrl }, '', newUrl);
-      }
+      window.history.pushState({ path: newUrl }, '', newUrl);
 
     } catch (err) {
-      console.error('Error fetching income statistics:', err);
+      console.error('Error fetching expense statistics:', err);
       setMessage({ type: 'error', text: `加载统计数据失败: ${err.message}` });
     } finally {
       setLoading(false);
     }
-  }, [filters, buildQueryString]); // Depend on 'filters' and 'buildQueryString'
+  }, [buildQueryString]);
 
-  // Effect to fetch statistics whenever filters change
   useEffect(() => {
     fetchStatistics();
-  }, [fetchStatistics]); // fetchStatistics itself has filters as a dependency
+  }, [fetchStatistics]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -125,12 +113,16 @@ const IncomeStatistics = () => {
   const handleSelectChange = (name, value) => {
     setFilters(prev => {
       const newState = { ...prev, [name]: value };
+      // If category type changes, reset individual category/subcategory filter
+      if (name === 'categoryType') {
+        newState.category = '';
+        newState.subcategory = '';
+      }
       // If period changes, reset selectedYear unless it's 'month'
       if (name === 'period' && value !== 'month') {
-        newState.selectedYear = ''; // Reset year if not monthly grouping
+        newState.selectedYear = new Date().getFullYear().toString();
       }
-      // If category changes, reset subcategory selection for proper subcategory filtering
-      // This is still relevant because distinctSubcategories might change based on category
+      // If category changes, reset subcategory
       if (name === 'category') {
         newState.subcategory = '';
       }
@@ -138,10 +130,9 @@ const IncomeStatistics = () => {
     });
   };
 
-  // The submit button now simply triggers a re-fetch based on current filters
   const handleSubmit = (e) => {
     e.preventDefault();
-    fetchStatistics();
+    fetchStatistics(); // Trigger a fetch with current filters
   };
 
   const handleReset = () => {
@@ -153,81 +144,51 @@ const IncomeStatistics = () => {
       subcategory: '',
       minAmount: '',
       maxAmount: '',
-      period: '',
-      categoryType: '',
+      period: '', // Resets to total grouping
+      categoryType: '', // Resets to no category grouping
       selectedYear: currentYear,
     });
-    // After resetting filters, trigger a fetch
-    // No need to call fetchStatistics() directly here as `filters` state change will trigger useEffect
+    // fetchStatistics will be called due to filters change
   };
 
   const renderCategoryOrTimeDisplay = (item, period, categoryType) => {
-    if (!item || item.id === undefined || item.id === null) {
-      return '[未知统计项]';
+    if (period === 'year') {
+      return `${item._id} 年`;
+    } else if (period === 'month') {
+      return `${item._id.year} 年 ${String(item._id.month).padStart(2, '0')} 月`;
+    } else if (categoryType === 'category') {
+      return item._id;
+    } else if (categoryType === 'subcategory') {
+      return item._id;
+    } else if (categoryType === 'categoryAndSubcategory') {
+      return `${item._id.category} - ${item._id.subcategory}`;
     }
-
-    const id = String(item.id);
-
-    if (id === '总计') {
-      return '总计';
-    }
-
-    if (period === 'year' && !categoryType) {
-        if (/^\d{4}$/.test(id)) {
-            return `${id} 年`;
-        }
-    } else if (period === 'month' && !categoryType) {
-        const match = id.match(/^(\d{4})-(\d{2})$/);
-        if (match) {
-            return `${match[1]} 年 ${parseInt(match[2], 10)} 月`;
-        }
-    }
-
-    if (categoryType) {
-        let display = id;
-        if (period === 'year') {
-            const parts = id.split('-');
-            if (parts.length > 1 && /^\d{4}$/.test(parts[parts.length - 1])) {
-                const yearPart = parts.pop();
-                display = `${parts.join('-')} (${yearPart} 年)`;
-            }
-        } else if (period === 'month') {
-            const parts = id.split('-');
-            if (parts.length > 1 && /^\d{4}-\d{2}$/.test(parts[parts.length - 1])) {
-                const monthYearPart = parts.pop();
-                const [year, month] = monthYearPart.split('-');
-                display = `${parts.join('-')} (${year} 年 ${parseInt(month, 10)} 月)`;
-            }
-        }
-        if (categoryType === 'categoryAndSubcategory' && display.includes(' - ')) {
-            // Already formatted correctly by backend for "Category - Subcategory"
-        }
-        return display;
-    }
-
-    return id;
+    return '总计'; // Default for total or fallback
   };
 
+  // Calculate overall total amount for display
   const totalOverallAmount = statisticsData.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
 
   return (
-    <MainLayout pageTitle="收入统计">
+    <MainLayout pageTitle="支出统计">
       <div className="container mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
+        {/* Return to Expense List Button */}
         <Button
-          onClick={() => window.location.href = '/incomes'}
+          onClick={() => window.location.href = '/expenses'}
           className="bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow-md w-fit mb-4"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />返回收入列表
+          <ArrowLeft className="w-4 h-4 mr-2" />返回支出列表
         </Button>
 
+        {/* Messages */}
         {message && (
-          <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />}
+          <div className={`p-3 rounded-md mb-4 ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
             {message.text}
           </div>
         )}
         {loading && <p className="text-center text-gray-600">加载中...</p>}
 
+        {/* Filter Card */}
         <Card className="shadow-lg rounded-xl overflow-hidden">
           <CardHeader className="bg-white p-4 cursor-pointer" onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}>
             <CardTitle className="text-lg font-semibold text-gray-800 flex justify-between items-center">
@@ -238,9 +199,9 @@ const IncomeStatistics = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  <Label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
                     <Calendar className="inline-block w-4 h-4 mr-1 text-gray-500" /> 开始日期:
-                  </label>
+                  </Label>
                   <Input
                     type="date"
                     id="startDate"
@@ -251,9 +212,9 @@ const IncomeStatistics = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  <Label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
                     <Calendar className="inline-block w-4 h-4 mr-1 text-gray-500" /> 结束日期:
-                  </label>
+                  </Label>
                   <Input
                     type="date"
                     id="endDate"
@@ -264,93 +225,9 @@ const IncomeStatistics = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                    <Tag className="inline-block w-4 h-4 mr-1 text-gray-500" /> 大类 (筛选):
-                  </label>
-                  <Select
-                    value={filters.category}
-                    onValueChange={(value) => handleSelectChange('category', value)}
-                  >
-                    <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
-                      <SelectValue placeholder="所有大类" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">所有大类</SelectItem>
-                      {distinctCategories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700 mb-1">
-                    <Tag className="inline-block w-4 h-4 mr-1 text-gray-500" /> 小类 (筛选):
-                  </label>
-                  <Select
-                    value={filters.subcategory}
-                    onValueChange={(value) => handleSelectChange('subcategory', value)}
-                  >
-                    <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
-                      <SelectValue placeholder="所有小类" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">所有小类</SelectItem>
-                      {distinctSubcategories.map(subcat => (
-                        <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label htmlFor="minAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                    <DollarSign className="inline-block w-4 h-4 mr-1 text-gray-500" /> 最小金额:
-                  </label>
-                  <Input
-                    type="number"
-                    id="minAmount"
-                    name="minAmount"
-                    value={filters.minAmount}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="maxAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                    <DollarSign className="inline-block w-4 h-4 mr-1 text-gray-500" /> 最大金额:
-                  </label>
-                  <Input
-                    type="number"
-                    id="maxAmount"
-                    name="maxAmount"
-                    value={filters.maxAmount}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="period" className="block text-sm font-medium text-gray-700 mb-1">
-                    <BarChart className="inline-block w-4 h-4 mr-1 text-gray-500" /> 时间分组:
-                  </label>
-                  <Select
-                    value={filters.period}
-                    onValueChange={(value) => handleSelectChange('period', value)}
-                  >
-                    <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
-                      <SelectValue placeholder="总计" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">总计</SelectItem>
-                      <SelectItem value="year">按年</SelectItem>
-                      <SelectItem value="month">按月</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label htmlFor="categoryType" className="block text-sm font-medium text-gray-700 mb-1">
+                  <Label htmlFor="categoryType" className="block text-sm font-medium text-gray-700 mb-1">
                     <Tag className="inline-block w-4 h-4 mr-1 text-gray-500" /> 类别分组:
-                  </label>
+                  </Label>
                   <Select
                     value={filters.categoryType}
                     onValueChange={(value) => handleSelectChange('categoryType', value)}
@@ -366,11 +243,100 @@ const IncomeStatistics = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Individual category/subcategory filters, only show if categoryType is not set */}
+                {filters.categoryType === '' && (
+                  <>
+                    <div>
+                      <Label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                        <Tag className="inline-block w-4 h-4 mr-1 text-gray-500" /> 大类 (筛选):
+                      </Label>
+                      <Select
+                        value={filters.category}
+                        onValueChange={(value) => handleSelectChange('category', value)}
+                      >
+                        <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
+                          <SelectValue placeholder="所有大类" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">所有大类</SelectItem>
+                          {distinctCategories.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="subcategory" className="block text-sm font-medium text-gray-700 mb-1">
+                        <Tag className="inline-block w-4 h-4 mr-1 text-gray-500" /> 小类 (筛选):
+                      </Label>
+                      <Select
+                        value={filters.subcategory}
+                        onValueChange={(value) => handleSelectChange('subcategory', value)}
+                      >
+                        <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
+                          <SelectValue placeholder="所有小类" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">所有小类</SelectItem>
+                          {distinctSubcategories.map(subcat => (
+                            <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <Label htmlFor="minAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    <DollarSign className="inline-block w-4 h-4 mr-1 text-gray-500" /> 最小金额:
+                  </Label>
+                  <Input
+                    type="number"
+                    id="minAmount"
+                    name="minAmount"
+                    value={filters.minAmount}
+                    onChange={handleInputChange}
+                    step="0.01"
+                    className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="maxAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    <DollarSign className="inline-block w-4 h-4 mr-1 text-gray-500" /> 最大金额:
+                  </Label>
+                  <Input
+                    type="number"
+                    id="maxAmount"
+                    name="maxAmount"
+                    value={filters.maxAmount}
+                    onChange={handleInputChange}
+                    step="0.01"
+                    className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="period" className="block text-sm font-medium text-gray-700 mb-1">
+                    <BarChart className="inline-block w-4 h-4 mr-1 text-gray-500" /> 时间分组:
+                  </Label>
+                  <Select
+                    value={filters.period}
+                    onValueChange={(value) => handleSelectChange('period', value)}
+                  >
+                    <SelectTrigger className="w-full rounded-md border-gray-300 shadow-sm">
+                      <SelectValue placeholder="总计" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">总计</SelectItem>
+                      <SelectItem value="year">按年</SelectItem>
+                      <SelectItem value="month">按月</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {filters.period === 'month' && (
                   <div>
-                    <label htmlFor="selectedYear" className="block text-sm font-medium text-gray-700 mb-1">
+                    <Label htmlFor="selectedYear" className="block text-sm font-medium text-gray-700 mb-1">
                       <Calendar className="inline-block w-4 h-4 mr-1 text-gray-500" /> 选择年度:
-                    </label>
+                    </Label>
                     <Select
                       value={filters.selectedYear.toString()}
                       onValueChange={(value) => handleSelectChange('selectedYear', value)}
@@ -401,6 +367,7 @@ const IncomeStatistics = () => {
           </CardContent>
         </Card>
 
+        {/* Statistics Details Card */}
         <Card className="shadow-lg rounded-xl overflow-hidden">
           <CardHeader className="bg-white p-4 cursor-pointer" onClick={() => setIsStatsCollapsed(!isStatsCollapsed)}>
             <CardTitle className="text-lg font-semibold text-gray-800 flex justify-between items-center">
@@ -426,7 +393,7 @@ const IncomeStatistics = () => {
                             <span className="font-bold md:hidden">统计类别:</span>
                             <span>{renderCategoryOrTimeDisplay(item, filters.period, filters.categoryType)}</span>
                           </TableCell>
-                          <TableCell data-label="总金额:" className="py-2 px-4 whitespace-nowrap text-green-600 font-bold flex justify-between items-center md:table-cell md:block md:text-left">
+                          <TableCell data-label="总金额:" className="py-2 px-4 whitespace-nowrap text-red-600 font-bold flex justify-between items-center md:table-cell md:block md:text-left">
                             <span className="font-bold md:hidden">总金额:</span>
                             <span>¥ {item.totalAmount ? item.totalAmount.toFixed(2) : '0.00'}</span>
                           </TableCell>
@@ -456,4 +423,4 @@ const IncomeStatistics = () => {
   );
 };
 
-export default IncomeStatistics;
+export default ExpenseStatistics;

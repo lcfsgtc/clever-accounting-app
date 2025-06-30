@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置，通常与此文件在同一目录下
-import  Button  from '@/components/ui/button';
-import  Input  from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import  Label  from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, XCircle, Edit, DollarSign, Tag, Calendar, LayoutGrid } from 'lucide-react'; // Icons
+// src/pages/expenses/ExpenseEdit.jsx
 
-// Helper function to format date for input fields (YYYY-MM-DD)
+import React, { useState, useEffect } from 'react';
+// 1. 导入 apiClient
+import apiClient from '../../api/apiClient'; // 调整路径以匹配您的项目结构
+
+// 导入UI组件 (保持不变)
+import MainLayout from '../MainLayout.jsx';
+import Button from '@/components/ui/button';
+import Input from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Label from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Save, XCircle, Edit, DollarSign, Tag, Calendar, LayoutGrid, CheckCircle } from 'lucide-react';
+
+// Helper function (保持不变)
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -17,63 +23,53 @@ const formatDateForInput = (dateString) => {
   return `${year}-${month}-${day}`;
 };
 
-const ExpenseEdit = () => {
-  const [expense, setExpense] = useState({
-    _id: '', // To store the ID of the expense being edited
-    description: '',
-    amount: '',
-    category: '',
-    subcategory: '',
-    date: formatDateForInput(new Date()), // Default to today's date, will be overwritten by fetched data
-  });
+// 2. 组件接收 expenseId 作为 prop
+const ExpenseEdit = ({ expenseId }) => {
+  // 3. 初始状态设为 null
+  const [expense, setExpense] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState(null); // For success/error messages
+  const [message, setMessage] = useState(null);
 
-  // Hardcoded categories as in original EJS, these could be fetched from an API if dynamic
   const categories = ['衣', '食', '住', '行', '医', '娱', '人情', '其他'];
 
   useEffect(() => {
-    // Extract expense ID from the URL path (e.g., /expenses/edit/123)
-    const pathSegments = window.location.pathname.split('/');
-    const expenseId = pathSegments[pathSegments.length - 1]; // Gets the ID from the URL
-
-    if (expenseId) {
-      const fetchExpense = async () => {
-        setLoading(true);
-        setMessage(null);
-        try {
-          const token = localStorage.getItem('authToken'); // Get JWT from local storage
-          const response = await fetch(`/api/expenses/${expenseId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}` // Send JWT for authentication
-            }
-          });
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || 'Failed to fetch expense details.');
-          }
-
-          // Format date for the input field
-          setExpense({
-            ...data,
-            date: formatDateForInput(data.date),
-            amount: data.amount.toString() // Convert amount to string for number input value
-          });
-        } catch (err) {
-          console.error('Error fetching expense:', err);
-          setMessage({ type: 'error', text: `加载支出记录失败: ${err.message}` });
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchExpense();
-    } else {
-      setLoading(false);
+    // 4. 从 prop 获取 ID，而不是从 URL 解析
+    if (!expenseId) {
       setMessage({ type: 'error', text: '无效的支出记录ID。' });
+      setLoading(false);
+      return;
     }
-  }, []); // Empty dependency array means this runs once on mount
+
+    const fetchExpense = async () => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        // 5. 使用 apiClient 发起 GET 请求
+        const response = await apiClient.get(`/expenses/${expenseId}`);
+        const data = response.data;
+        
+        // 注意：您的后端返回的ID字段可能是 `id` 或 `_id`
+        // Supabase 通常是 `id`。这里我们统一使用 `id`
+        setExpense({
+          id: data.id, 
+          description: data.description,
+          amount: data.amount.toString(),
+          category: data.category,
+          subcategory: data.subcategory,
+          date: formatDateForInput(data.date),
+        });
+
+      } catch (err) {
+        const errorMessage = err.response?.data?.message || err.message || '加载支出记录失败。';
+        setMessage({ type: 'error', text: errorMessage });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchExpense();
+  }, [expenseId]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -86,16 +82,17 @@ const ExpenseEdit = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!expense) return;
+    
     setSaving(true);
     setMessage(null);
 
-    // Basic frontend validation
+    // 前端验证逻辑 (保持不变)
     if (!expense.description || !expense.amount || !expense.category || !expense.subcategory || !expense.date) {
       setMessage({ type: 'error', text: '所有字段都是必填项。' });
       setSaving(false);
       return;
     }
-
     if (isNaN(parseFloat(expense.amount)) || parseFloat(expense.amount) <= 0) {
       setMessage({ type: 'error', text: '金额必须是大于0的有效数字。' });
       setSaving(false);
@@ -103,37 +100,25 @@ const ExpenseEdit = () => {
     }
 
     try {
-      const token = localStorage.getItem('authToken'); // Get JWT from local storage
-      const response = await fetch(`/api/expenses/${expense._id}`, {
-        method: 'PUT', // Use PUT for updating
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Send JWT for authentication
-        },
-        body: JSON.stringify({
-          description: expense.description,
-          amount: parseFloat(expense.amount), // Convert amount back to number
-          category: expense.category,
-          subcategory: expense.subcategory,
-          date: expense.date,
-        }),
+      // 6. 使用 apiClient 发起 PUT 请求
+      const response = await apiClient.put(`/expenses/${expense.id}`, {
+        description: expense.description,
+        amount: parseFloat(expense.amount),
+        category: expense.category,
+        subcategory: expense.subcategory,
+        date: expense.date,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '更新支出记录失败。');
-      }
-
-      setMessage({ type: 'success', text: data.message || '支出记录更新成功！' });
-      // Optionally redirect after a short delay
+      setMessage({ type: 'success', text: response.data.message || '支出记录更新成功！' });
+      
+      // 7. 使用 replace 重定向
       setTimeout(() => {
-        window.location.href = '/expenses'; // Redirect to expense list after successful update
+        window.location.replace('/expenses');
       }, 1500);
 
     } catch (err) {
-      console.error('Error updating expense:', err);
-      setMessage({ type: 'error', text: err.message || '更新支出记录失败，请稍后再试。' });
+      const errorMessage = err.response?.data?.message || err.message || '更新支出记录失败，请稍后再试。';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setSaving(false);
     }
@@ -147,42 +132,37 @@ const ExpenseEdit = () => {
     );
   }
 
-  // If there's an error and no expense data (e.g., ID not found), display error
-  if (!loading && message && message.type === 'error' && !expense._id) {
+  // 8. 改进加载和错误状态的UI显示
+  if (!expense) {
     return (
       <MainLayout pageTitle="编辑支出记录">
-        <p className="text-center text-red-500 mt-8">{message.text}</p>
+        <div className="text-center text-red-500 mt-8">
+          {message?.text || '无法找到该支出记录。'}
+        </div>
       </MainLayout>
     );
   }
 
-  // If data is loaded but expense object is empty (shouldn't happen if ID is valid)
-  if (!expense._id) {
-    return (
-      <MainLayout pageTitle="编辑支出记录">
-        <p className="text-center text-gray-500 mt-8">无法找到支出记录。</p>
-      </MainLayout>
-    );
-  }
-
-
+  // UI 部分 (JSX) 保持不变，只为消息提示添加图标和调整颜色
   return (
-    <MainLayout pageTitle="编辑支出记录"> {/* 使用 MainLayout 包装组件 */}
+    <MainLayout pageTitle="编辑支出记录">
       <div className="container mx-auto p-4 md:p-8 lg:p-12 flex items-center justify-center min-h-[calc(100vh-100px)]">
         <Card className="w-full max-w-lg shadow-xl rounded-xl overflow-hidden">
-          <CardHeader className="bg-blue-600 text-white text-center py-5">
+          <CardHeader className="bg-red-600 text-white text-center py-5">
             <CardTitle className="text-2xl font-bold flex items-center justify-center">
               <Edit className="mr-2 h-7 w-7" />编辑支出记录
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 md:p-8">
             {message && (
-              <div className={`p-3 rounded-md mb-4 text-sm ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />}
                 {message.text}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Form fields... no changes here */}
               <div>
                 <Label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                   <LayoutGrid className="inline-block w-4 h-4 mr-1 text-gray-500" />描述:
@@ -194,7 +174,7 @@ const ExpenseEdit = () => {
                   value={expense.description}
                   onChange={handleInputChange}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                 />
               </div>
               <div>
@@ -210,7 +190,7 @@ const ExpenseEdit = () => {
                   step="0.01"
                   min="0.01"
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                 />
               </div>
               <div>
@@ -226,7 +206,6 @@ const ExpenseEdit = () => {
                     <SelectValue placeholder="请选择大类" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">请选择大类</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
@@ -244,7 +223,7 @@ const ExpenseEdit = () => {
                   value={expense.subcategory}
                   onChange={handleInputChange}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                 />
               </div>
               <div>
@@ -258,16 +237,15 @@ const ExpenseEdit = () => {
                   value={expense.date}
                   onChange={handleInputChange}
                   required
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                 />
               </div>
-
               <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                <Button type="submit" className="flex-grow bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={saving}>
-                  <Save className="mr-2 h-5 w-5" />{saving ? '保存中...' : '保存'}
+                <Button type="submit" className="flex-grow bg-red-600 hover:bg-red-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={saving}>
+                  <Save className="mr-2 h-5 w-5" />{saving ? '保存中...' : '确认修改'}
                 </Button>
                 <Button type="button" onClick={() => window.location.href = '/expenses'} variant="outline" className="flex-grow text-gray-700 border-gray-300 hover:bg-gray-100 rounded-md shadow-sm py-2.5 text-base">
-                  <XCircle className="mr-2 h-5 w-5" />取消
+                  <XCircle className="mr-2 h-5 w-5" />返回列表
                 </Button>
               </div>
             </form>
