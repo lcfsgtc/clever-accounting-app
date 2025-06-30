@@ -65,7 +65,7 @@ export const authRoutes = [
 
 
     // 注册 (POST /api/register)
-    { method: 'POST', pattern: '/api/register', handler: async (request, env, apiContext) => {
+    { method: 'POST', pattern: '/register', handler: async (request, env, apiContext) => {
         try {
             const { username, password, email } = await request.json();
             if (!username || !password || !email) {
@@ -129,7 +129,7 @@ export const authRoutes = [
     }},
 
     // 登录 (POST /api/login)
-    { method: 'POST', pattern: '/api/login', handler: async (request, env, apiContext) => {
+    { method: 'POST', pattern: '/login', handler: async (request, env, apiContext) => {
         try {
             const { username, password } = await request.json();
             if (!username || !password) {
@@ -172,7 +172,7 @@ export const authRoutes = [
     }},
 
     // 登出 (GET /api/logout)
-    { method: 'GET', pattern: '/api/logout', handler: async (request, env, apiContext) => {
+    { method: 'GET', pattern: '/logout', handler: async (request, env, apiContext) => {
         // 在纯 API 模式下，登出通常意味着客户端删除其 JWT。
         // 服务器端通常无需特殊处理，除非需要维护 JWT 黑名单等复杂逻辑。
         // 对于本示例，只需返回成功消息。
@@ -182,7 +182,7 @@ export const authRoutes = [
     // 修改密码 (POST /api/change-password)
     {
         method: 'POST',
-        pattern: '/api/change-password',
+        pattern: '/change-password',
         handler: async (request, env, apiContext) => {
             // apiContext.requireLogin 确保 request 上已有 userId (user_id) 和 isAdmin
             const authCheck = await apiContext.requireLogin(request, env);
@@ -243,7 +243,7 @@ export const authRoutes = [
     // 用户管理列表 (GET /api/admin/users) - 仅管理员可见
     {
         method: 'GET',
-        pattern: '/api/admin/users',
+        pattern: '/admin/users',
         handler: async (request, env, apiContext) => {
             const adminCheck = await apiContext.requireAdmin(request, env);
             if (adminCheck) return adminCheck; // 非管理员返回错误
@@ -269,7 +269,7 @@ export const authRoutes = [
     // 获取单个用户详情 (GET /api/admin/users/:id) - 仅管理员可见
     {
         method: 'GET',
-        pattern: '/api/admin/users/:id',
+        pattern: '/admin/users/:id',
         handler: async (request, env, apiContext) => {
             const adminCheck = await apiContext.requireAdmin(request, env);
             if (adminCheck) return adminCheck;
@@ -305,7 +305,7 @@ export const authRoutes = [
     // 更新用户 (PUT /api/admin/users/:id) - 仅管理员可见
     {
         method: 'PUT',
-        pattern: '/api/admin/users/:id',
+        pattern: '/admin/users/:id',
         handler: async (request, env, apiContext) => {
             const adminCheck = await apiContext.requireAdmin(request, env);
             if (adminCheck) return adminCheck;
@@ -405,7 +405,7 @@ export const authRoutes = [
     // 删除用户 (DELETE /api/admin/users/:id) - 仅管理员可见
     {
         method: 'DELETE',
-        pattern: '/api/admin/users/:id',
+        pattern: '/admin/users/:id',
         handler: async (request, env, apiContext) => {
             const adminCheck = await apiContext.requireAdmin(request, env);
             if (adminCheck) return adminCheck;
@@ -452,7 +452,7 @@ export const authRoutes = [
     // 重置用户密码 (POST /api/admin/users/reset-password/:id) - 仅管理员可见
     {
         method: 'POST',
-        pattern: '/api/admin/users/reset-password/:id',
+        pattern: '/admin/users/reset-password/:id',
         handler: async (request, env, apiContext) => {
             const adminCheck = await apiContext.requireAdmin(request, env);
             if (adminCheck) return adminCheck;
