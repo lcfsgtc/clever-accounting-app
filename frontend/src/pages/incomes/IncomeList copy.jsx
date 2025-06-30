@@ -8,12 +8,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'; // Assuming shadcn/ui table components
-import Button  from '@/components/ui/button'; // Assuming shadcn/ui button component
-import  Input  from '@/components/ui/input'; // Assuming shadcn/ui input component
+import Button from '@/components/ui/button'; // Assuming shadcn/ui button component
+import Input from '@/components/ui/input'; // Assuming shadcn/ui input component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Assuming shadcn/ui select component
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming shadcn/ui card component
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from '@/components/ui/pagination'; // Assuming shadcn/ui pagination components
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Assuming shadcn/ui dialog components
+// 确保 Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 都正确导入
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Filter, Plus, FileSpreadsheet, BarChart2, Edit, Trash2, Search, CheckCircle, XCircle } from 'lucide-react'; // Using lucide-react for icons
 
 // Helper function to format date for input fields (YYYY-MM-DD)
@@ -71,61 +72,60 @@ const IncomeList = () => {
     return params.toString();
   }, [filters]); // Re-run if filters change
 
-// Using useCallback to memoize the fetchIncomes function
-const fetchIncomes = useCallback(async () => {
+  // Using useCallback to memoize the fetchIncomes function
+  const fetchIncomes = useCallback(async () => {
     setLoading(true);
     setMessage(null); // Clear previous messages
     const queryString = buildQueryString();
     try {
-        console.log('Fetching incomes...');
-        const token = localStorage.getItem('authToken'); // Get JWT from local storage
-        const response = await fetch(`/api/incomes?${queryString}`, {
-            headers: {
-                'Authorization': `Bearer ${token}` // Send JWT for authentication
-            }
-        });
-        const data = await response.json();
-        console.log('API response data:', data);
-        // --- 核心改进开始 ---
-        // 1. 优先检查 response.ok
-        if (!response.ok) {
-          console.log('API response not ok:', response.status, data.message);
-            // 如果后端返回非2xx状态码，并且有错误信息，则抛出错误
-            throw new Error(data.message || `HTTP 错误: ${response.status} ${response.statusText}`);
+      console.log('Fetching incomes...');
+      const token = localStorage.getItem('authToken'); // Get JWT from local storage
+      const response = await fetch(`/api/incomes?${queryString}`, {
+        headers: {
+          'Authorization': `Bearer ${token}` // Send JWT for authentication
         }
+      });
+      const data = await response.json();
+      console.log('API response data:', data);
+      // --- 核心改进开始 ---
+      // 1. 优先检查 response.ok
+      if (!response.ok) {
+        console.log('API response not ok:', response.status, data.message);
+        // 如果后端返回非2xx状态码，并且有错误信息，则抛出错误
+        throw new Error(data.message || `HTTP 错误: ${response.status} ${response.statusText}`);
+      }
 
-        // 2. 确保 data.incomes 是一个数组。如果不是，则将其视为空数组。
-        const incomesData = data.incomes || []; // 确保 incomesData 永远是数组
-        console.log('incomesData after fallback:', incomesData);
-        if (!Array.isArray(incomesData)) {
-            console.error('Incomes data is not an array!');
-            console.warn('API返回的incomes数据不是一个数组，将其视为空数组。实际返回:', data.incomes);
-            setIncomes([]);
-            setTotalIncomes(0);
-            setTotalPages(1);
-            return; // 提前返回，避免后续map操作
-        }
-        // --- 核心改进结束 ---
-        console.log('Attempting to set incomes with:', incomesData);
-        setIncomes(incomesData.map(income => ({ // 使用 incomesData 替代 data.incomes
-            ...income,
-            dateFormatted: formatDateForDisplay(income.date) // Format date for display
-        })));
-        setTotalIncomes(data.totalCount || 0); // 也对 totalCount 进行兜底
-        setTotalPages(data.totalPages || 1); // 对 totalPages 进行兜底
+      // 2. 确保 data.incomes 是一个数组。如果不是，则将其视为空数组。
+      const incomesData = data.incomes || []; // 确保 incomesData 永远是数组
+      console.log('incomesData after fallback:', incomesData);
+      if (!Array.isArray(incomesData)) {
+        console.error('Incomes data is not an array!');
+        console.warn('API返回的incomes数据不是一个数组，将其视为空数组。实际返回:', data.incomes);
+        setIncomes([]);
+        setTotalIncomes(0);
+        setTotalPages(1);
+        return; // 提前返回，避免后续map操作
+      }
+      // --- 核心改进结束 ---
+      console.log('Attempting to set incomes with:', incomesData);
+      setIncomes(incomesData.map(income => ({ // 使用 incomesData 替代 data.incomes
+        ...income,
+        dateFormatted: formatDateForDisplay(income.date) // Format date for display
+      })));
+      setTotalIncomes(data.totalCount || 0); // 也对 totalCount 进行兜底
+      setTotalPages(data.totalPages || 1); // 对 totalPages 进行兜底
 
-        // Update URL without full page reload
-        const newUrl = `${window.location.pathname}?${queryString}`;
-        window.history.pushState({ path: newUrl }, '', newUrl);
+      // Update URL without full page reload
+      const newUrl = `${window.location.pathname}?${queryString}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
 
     } catch (err) {
-        //console.error('获取数据时出错:', err);
-        console.error('Fetch incomes error:', err);
-        setMessage({ type: 'error', text: `加载收入记录失败: ${err.message}` });
+      console.error('Fetch incomes error:', err);
+      setMessage({ type: 'error', text: `加载收入记录失败: ${err.message}` });
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-}, [buildQueryString]); // Re-run if buildQueryString changes (i.e., filters change)
+  }, [buildQueryString]); // Re-run if buildQueryString changes (i.e., filters change)
 
   useEffect(() => {
     fetchIncomes();
@@ -160,7 +160,7 @@ const fetchIncomes = useCallback(async () => {
 
   // Handle delete action (opens confirmation dialog)
   const handleDeleteClick = (id) => {
-    console.log('handleDeleteClick called');
+    console.log('handleDeleteClick called with ID:', id);
     setSelectedIncomeId(id);
     setIsDialogOpen(true);
   };
@@ -191,6 +191,61 @@ const fetchIncomes = useCallback(async () => {
       setMessage({ type: 'error', text: err.message || '删除收入记录失败，请稍后再试。' });
     }
   };
+
+   // 新增一个处理导出逻辑的函数
+  const handleExport = async () => {
+    setMessage(null); // 清除之前的消息
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setMessage({ type: 'error', text: '未登录或登录信息过期，请重新登录。' });
+        // 可以选择跳转到登录页
+        // window.location.href = '/login';
+        return;
+      }
+
+      const queryString = buildQueryString();
+      console.log('Exporting incomes with query string:', queryString);
+
+      const response = await fetch(`/api/incomes/export?${queryString}`, {
+        method: 'GET', // 尽管是 GET 请求，显式写明更好
+        headers: {
+          'Authorization': `Bearer ${token}` // 在这里添加 JWT 令牌
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json(); // 尝试解析错误响应体
+        throw new Error(errorData.message || `导出失败: ${response.status} ${response.statusText}`);
+      }
+
+      // 获取文件名，通常从 Content-Disposition 头获取
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `incomes_export_${Date.now()}.csv`; // 默认文件名
+      if (contentDisposition && contentDisposition.indexOf('filename=') !== -1) {
+          filename = contentDisposition.split('filename=')[1].split(';')[0].replace(/"/g, '');
+      }
+
+      // 获取 Blob 数据
+      const blob = await response.blob();
+
+      // 创建一个下载链接
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename; // 设置下载文件名
+      document.body.appendChild(a);
+      a.click(); // 模拟点击下载
+      a.remove(); // 移除元素
+      window.URL.revokeObjectURL(url); // 释放 URL 对象
+
+      setMessage({ type: 'success', text: '收入记录已成功导出！' });
+
+    } catch (err) {
+      console.error('导出收入记录时出错:', err);
+      setMessage({ type: 'error', text: err.message || '导出收入记录失败，请稍后再试。' });
+    }
+  }; 
 
   return (
     <MainLayout pageTitle="收入列表"> {/* Use MainLayout as the base layout */}
@@ -244,11 +299,13 @@ const fetchIncomes = useCallback(async () => {
           <Button onClick={() => window.location.href = '/incomes/add'} className="bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md px-6 py-2">
             <Plus className="mr-2 h-5 w-5" />添加收入
           </Button>
-          <a href={`/api/incomes/export?${buildQueryString()}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-md px-6 py-2">
-              <FileSpreadsheet className="mr-2 h-5 w-5" />导出Excel
-            </Button>
-          </a>
+          <Button
+            variant="secondary"
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-md px-6 py-2"
+            onClick={handleExport} // 调用新的 handleExport 函数
+          >
+            <FileSpreadsheet className="mr-2 h-5 w-5" />导出Excel
+          </Button>
           <Button onClick={() => window.location.href = '/incomes/statistics'} className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-md shadow-md px-6 py-2">
             <BarChart2 className="mr-2 h-5 w-5" />收入统计
           </Button>
@@ -386,6 +443,9 @@ const fetchIncomes = useCallback(async () => {
 
       {/* Confirmation Dialog for Delete */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {/* --- 核心修改点 START --- */}
+        {/* 将 Dialog 的内容包裹在 DialogContent 内部，因为 DialogContentWrapper 才是真正条件渲染的元素 */}
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>删除收入记录</DialogTitle>
             <DialogDescription>
@@ -402,6 +462,8 @@ const fetchIncomes = useCallback(async () => {
               确定删除
             </Button>
           </DialogFooter>
+        </DialogContent>
+        {/* --- 核心修改点 END --- */}
       </Dialog>
     </MainLayout>
   );

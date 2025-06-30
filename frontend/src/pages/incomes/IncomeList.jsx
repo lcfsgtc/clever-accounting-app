@@ -1,40 +1,27 @@
+// src/pages/incomes/IncomeList.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
-import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'; // Assuming shadcn/ui table components
-import Button from '@/components/ui/button'; // Assuming shadcn/ui button component
-import Input from '@/components/ui/input'; // Assuming shadcn/ui input component
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Assuming shadcn/ui select component
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming shadcn/ui card component
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from '@/components/ui/pagination'; // Assuming shadcn/ui pagination components
-// 确保 Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 都正确导入
+// 1. 导入 apiClient
+import apiClient from '../../api/apiClient'; // 调整路径以匹配您的项目结构
+
+// 导入UI组件 (保持不变)
+import MainLayout from '../MainLayout.jsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Button from '@/components/ui/button';
+import Input from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Filter, Plus, FileSpreadsheet, BarChart2, Edit, Trash2, Search, CheckCircle, XCircle } from 'lucide-react'; // Using lucide-react for icons
+import { Filter, Plus, FileSpreadsheet, BarChart2, Edit, Trash2, Search, CheckCircle, XCircle } from 'lucide-react';
 
-// Helper function to format date for input fields (YYYY-MM-DD)
-const formatDateForInput = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Helper function to format date for display (YYYY/MM/DD)
+// Helper functions (保持不变)
 const formatDateForDisplay = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
   return date.toLocaleDateString('zh-CN');
 };
 
-// Helper function to parse URL search parameters for initial state
 const getInitialFilters = () => {
   const params = new URLSearchParams(window.location.search);
   return {
@@ -53,203 +40,139 @@ const IncomeList = () => {
   const [totalIncomes, setTotalIncomes] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState(null); // { type: 'success' | 'error', text: string }
-
-  // Dialog state for confirmation
+  const [message, setMessage] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  console.log('IncomeList isDialogOpen initial state:', isDialogOpen);
   const [selectedIncomeId, setSelectedIncomeId] = useState(null);
 
-  // Using useCallback to memoize the buildQueryString function
-  const buildQueryString = useCallback(() => {
-    const params = new URLSearchParams();
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
-    if (filters.category) params.append('category', filters.category);
-    if (filters.subcategory) params.append('subcategory', filters.subcategory);
-    params.append('page', filters.page);
-    params.append('limit', filters.limit);
-    return params.toString();
-  }, [filters]); // Re-run if filters change
+  // 2. buildQueryString 不再需要手动创建 URLSearchParams
+  //    因为 apiClient 会自动处理 params 对象
+  const buildQueryParams = useCallback(() => {
+    const params = {};
+    if (filters.startDate) params.startDate = filters.startDate;
+    if (filters.endDate) params.endDate = filters.endDate;
+    if (filters.category) params.category = filters.category;
+    if (filters.subcategory) params.subcategory = filters.subcategory;
+    params.page = filters.page;
+    params.limit = filters.limit;
+    return params;
+  }, [filters]);
 
-  // Using useCallback to memoize the fetchIncomes function
   const fetchIncomes = useCallback(async () => {
     setLoading(true);
-    setMessage(null); // Clear previous messages
-    const queryString = buildQueryString();
+    setMessage(null);
+    const queryParams = buildQueryParams();
+    
     try {
-      console.log('Fetching incomes...');
-      const token = localStorage.getItem('authToken'); // Get JWT from local storage
-      const response = await fetch(`/api/incomes?${queryString}`, {
-        headers: {
-          'Authorization': `Bearer ${token}` // Send JWT for authentication
-        }
-      });
-      const data = await response.json();
-      console.log('API response data:', data);
-      // --- 核心改进开始 ---
-      // 1. 优先检查 response.ok
-      if (!response.ok) {
-        console.log('API response not ok:', response.status, data.message);
-        // 如果后端返回非2xx状态码，并且有错误信息，则抛出错误
-        throw new Error(data.message || `HTTP 错误: ${response.status} ${response.statusText}`);
-      }
+      // 3. 使用 apiClient 发起 GET 请求，并传递 params
+      //    它会自动处理 baseURL 和 Authorization
+      const response = await apiClient.get('/incomes', { params: queryParams });
+      const data = response.data;
 
-      // 2. 确保 data.incomes 是一个数组。如果不是，则将其视为空数组。
-      const incomesData = data.incomes || []; // 确保 incomesData 永远是数组
-      console.log('incomesData after fallback:', incomesData);
-      if (!Array.isArray(incomesData)) {
-        console.error('Incomes data is not an array!');
-        console.warn('API返回的incomes数据不是一个数组，将其视为空数组。实际返回:', data.incomes);
-        setIncomes([]);
-        setTotalIncomes(0);
-        setTotalPages(1);
-        return; // 提前返回，避免后续map操作
-      }
-      // --- 核心改进结束 ---
-      console.log('Attempting to set incomes with:', incomesData);
-      setIncomes(incomesData.map(income => ({ // 使用 incomesData 替代 data.incomes
+      const incomesData = data.incomes || [];
+      setIncomes(incomesData.map(income => ({
         ...income,
-        dateFormatted: formatDateForDisplay(income.date) // Format date for display
+        dateFormatted: formatDateForDisplay(income.date)
       })));
-      setTotalIncomes(data.totalCount || 0); // 也对 totalCount 进行兜底
-      setTotalPages(data.totalPages || 1); // 对 totalPages 进行兜底
+      setTotalIncomes(data.totalCount || 0);
+      setTotalPages(data.totalPages || 1);
 
-      // Update URL without full page reload
-      const newUrl = `${window.location.pathname}?${queryString}`;
+      // 更新 URL
+      const newUrl = `${window.location.pathname}?${new URLSearchParams(queryParams).toString()}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
 
     } catch (err) {
-      console.error('Fetch incomes error:', err);
-      setMessage({ type: 'error', text: `加载收入记录失败: ${err.message}` });
+      // 4. 简化错误处理，401错误会被拦截器自动处理
+      const errorMessage = err.response?.data?.message || err.message || '加载收入记录失败。';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
     }
-  }, [buildQueryString]); // Re-run if buildQueryString changes (i.e., filters change)
+  }, [buildQueryParams]);
 
   useEffect(() => {
     fetchIncomes();
-  }, [fetchIncomes]); // Effect runs when fetchIncomes changes (due to filters, pagination)
+  }, [fetchIncomes]);
 
-  // Handle filter input changes
+  // 其他 handle 函数 (filter, page, limit change) 保持不变
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 })); // Reset to first page on filter change
+    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
   };
-
-  // Handle select filter changes (e.g., for category, subcategory if they become select inputs)
   const handleSelectFilterChange = (name, value) => {
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 })); // Reset to first page
+    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
   };
-
-  // Handle form submission for filters
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    fetchIncomes(); // Explicitly trigger fetch on submit
+    fetchIncomes();
   };
-
-  // Handle pagination page change
   const handlePageChange = (newPage) => {
     setFilters(prev => ({ ...prev, page: newPage }));
   };
-
-  // Handle limit (items per page) change
   const handleLimitChange = (value) => {
-    setFilters(prev => ({ ...prev, limit: parseInt(value), page: 1 })); // Reset to first page
+    setFilters(prev => ({ ...prev, limit: parseInt(value), page: 1 }));
   };
 
-  // Handle delete action (opens confirmation dialog)
   const handleDeleteClick = (id) => {
-    console.log('handleDeleteClick called with ID:', id);
     setSelectedIncomeId(id);
     setIsDialogOpen(true);
   };
 
-  // Confirm delete action
   const confirmDelete = async () => {
-    setIsDialogOpen(false); // Close dialog immediately
-    setMessage(null); // Clear previous messages
-
+    setIsDialogOpen(false);
+    setMessage(null);
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/incomes/${selectedIncomeId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || '删除收入记录失败。');
-      }
-
-      setMessage({ type: 'success', text: data.message || '收入记录删除成功！' });
-      fetchIncomes(); // Re-fetch list after successful deletion
+      // 5. 使用 apiClient 发起 DELETE 请求
+      const response = await apiClient.delete(`/incomes/${selectedIncomeId}`);
+      setMessage({ type: 'success', text: response.data.message || '收入记录删除成功！' });
+      fetchIncomes(); // 重新获取列表
     } catch (err) {
-      console.error('删除收入时出错:', err);
-      setMessage({ type: 'error', text: err.message || '删除收入记录失败，请稍后再试。' });
+      const errorMessage = err.response?.data?.message || err.message || '删除收入记录失败。';
+      setMessage({ type: 'error', text: errorMessage });
     }
   };
 
-   // 新增一个处理导出逻辑的函数
   const handleExport = async () => {
-    setMessage(null); // 清除之前的消息
+    setMessage(null);
+    const queryParams = buildQueryParams();
+
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        setMessage({ type: 'error', text: '未登录或登录信息过期，请重新登录。' });
-        // 可以选择跳转到登录页
-        // window.location.href = '/login';
-        return;
-      }
-
-      const queryString = buildQueryString();
-      console.log('Exporting incomes with query string:', queryString);
-
-      const response = await fetch(`/api/incomes/export?${queryString}`, {
-        method: 'GET', // 尽管是 GET 请求，显式写明更好
-        headers: {
-          'Authorization': `Bearer ${token}` // 在这里添加 JWT 令牌
-        }
+      // 6. 使用 apiClient 发起导出请求，并设置 responseType 为 'blob'
+      const response = await apiClient.get('/incomes/export', {
+        params: queryParams,
+        responseType: 'blob', // 关键！告诉 axios 期望接收一个二进制 Blob
       });
 
-      if (!response.ok) {
-        const errorData = await response.json(); // 尝试解析错误响应体
-        throw new Error(errorData.message || `导出失败: ${response.status} ${response.statusText}`);
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `incomes_export_${Date.now()}.csv`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch.length > 1) {
+          filename = filenameMatch[1];
+        }
       }
 
-      // 获取文件名，通常从 Content-Disposition 头获取
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `incomes_export_${Date.now()}.csv`; // 默认文件名
-      if (contentDisposition && contentDisposition.indexOf('filename=') !== -1) {
-          filename = contentDisposition.split('filename=')[1].split(';')[0].replace(/"/g, '');
-      }
-
-      // 获取 Blob 数据
-      const blob = await response.blob();
-
-      // 创建一个下载链接
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename; // 设置下载文件名
-      document.body.appendChild(a);
-      a.click(); // 模拟点击下载
-      a.remove(); // 移除元素
-      window.URL.revokeObjectURL(url); // 释放 URL 对象
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
       setMessage({ type: 'success', text: '收入记录已成功导出！' });
 
     } catch (err) {
-      console.error('导出收入记录时出错:', err);
-      setMessage({ type: 'error', text: err.message || '导出收入记录失败，请稍后再试。' });
+      const errorMessage = err.response?.data?.message || err.message || '导出失败，请稍后再试。';
+      setMessage({ type: 'error', text: errorMessage });
     }
-  }; 
+  };
 
+  // UI 部分 (JSX) 保持不变，它已经写得很好
   return (
-    <MainLayout pageTitle="收入列表"> {/* Use MainLayout as the base layout */}
-      <div className="container mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
+    <MainLayout pageTitle="收入列表">
+      {/* ... 所有 JSX 代码保持不变 ... */}
+       <div className="container mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
         {/* Messages */}
         {message && (
           <div className={`p-3 rounded-md mb-4 text-sm flex items-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>

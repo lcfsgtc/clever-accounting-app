@@ -1,21 +1,34 @@
-// src/pages/incomes/IncomeStatistics.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
-// 1. 导入 apiClient
-import apiClient from '../../api/apiClient'; // 调整路径以匹配您的项目结构
-
-// 导入UI组件 (保持不变)
 import MainLayout from '../MainLayout.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import Button from '@/components/ui/button';
 import Input from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Filter, BarChart, Calendar, Tag, DollarSign, RedoDot, ArrowLeft, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
 
-// Helper functions (保持不变)
+// Helper function to format date for input fields (YYYY-MM-DD)
+const formatDateForInput = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  // Ensure date is treated as UTC to prevent timezone issues with YYYY-MM-DD
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to parse URL search parameters for initial state
 const getInitialFilters = () => {
   const params = new URLSearchParams(window.location.search);
+  // Default year to current year if not present in URL
   const currentYear = new Date().getFullYear().toString();
   return {
     startDate: params.get('startDate') || '',
@@ -26,12 +39,11 @@ const getInitialFilters = () => {
     maxAmount: params.get('maxAmount') || '',
     period: params.get('period') || '',
     categoryType: params.get('categoryType') || '',
-    selectedYear: params.get('year') || currentYear,
+    selectedYear: params.get('year') || currentYear, // Use currentYear as default
   };
 };
 
 const IncomeStatistics = () => {
-  // State hooks (保持不变)
   const [filters, setFilters] = useState(getInitialFilters());
   const [statisticsData, setStatisticsData] = useState([]);
   const [distinctCategories, setDistinctCategories] = useState([]);
@@ -42,59 +54,68 @@ const IncomeStatistics = () => {
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [isStatsCollapsed, setIsStatsCollapsed] = useState(false);
 
-  // 2. buildQueryParams 现在返回一个普通的JS对象
-  const buildQueryParams = useCallback((currentFilters) => {
-    const params = {};
-    if (currentFilters.startDate) params.startDate = currentFilters.startDate;
-    if (currentFilters.endDate) params.endDate = currentFilters.endDate;
-    if (currentFilters.category) params.category = currentFilters.category;
-    if (currentFilters.subcategory) params.subcategory = currentFilters.subcategory;
-    if (currentFilters.minAmount) params.minAmount = currentFilters.minAmount;
-    if (currentFilters.maxAmount) params.maxAmount = currentFilters.maxAmount;
-    if (currentFilters.period) params.period = currentFilters.period;
-    if (currentFilters.categoryType) params.categoryType = currentFilters.categoryType;
+  // This function generates the query string based on the current filters state
+  const buildQueryString = useCallback((currentFilters) => {
+    const params = new URLSearchParams();
+    if (currentFilters.startDate) params.append('startDate', currentFilters.startDate);
+    if (currentFilters.endDate) params.append('endDate', currentFilters.endDate);
+    if (currentFilters.category) params.append('category', currentFilters.category);
+    if (currentFilters.subcategory) params.append('subcategory', currentFilters.subcategory);
+    if (currentFilters.minAmount) params.append('minAmount', currentFilters.minAmount);
+    if (currentFilters.maxAmount) params.append('maxAmount', currentFilters.maxAmount);
+    if (currentFilters.period) params.append('period', currentFilters.period);
+    if (currentFilters.categoryType) params.append('categoryType', currentFilters.categoryType);
+    // Only append year if period is 'month' and year is selected
     if (currentFilters.period === 'month' && currentFilters.selectedYear) {
-      params.year = currentFilters.selectedYear;
+      params.append('year', currentFilters.selectedYear);
     }
-    return params;
-  }, []);
+    return params.toString();
+  }, []); // No dependencies needed here as it takes filters as an argument
 
-  // 3. 重构 fetchStatistics 函数
+  // This function fetches data based on the *current* filters state
   const fetchStatistics = useCallback(async () => {
     setLoading(true);
     setMessage(null);
-    const queryParams = buildQueryParams(filters);
+
+    // Pass the current filters to buildQueryString
+    const queryString = buildQueryString(filters);
 
     try {
-      // 使用 apiClient 发起请求，自动处理 baseURL 和 Authorization
-      const response = await apiClient.get('/incomes/statistics', { params: queryParams });
-      const data = response.data;
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/incomes/statistics?${queryString}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
 
-      setStatisticsData(data.statistics || []);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch statistics');
+      }
+
+      setStatisticsData(data.statistics);
       setDistinctCategories(data.distinctCategories || []);
       setDistinctSubcategories(data.distinctSubcategories || []);
       setDistinctYears(data.distinctYears || []);
 
-      // 更新 URL
-      const queryString = new URLSearchParams(queryParams).toString();
+      // Update URL only if the query string has changed
       const newUrl = `${window.location.pathname}?${queryString}`;
       if (window.location.search !== `?${queryString}`) {
         window.history.pushState({ path: newUrl }, '', newUrl);
       }
 
     } catch (err) {
-      // 4. 简化错误处理
-      const errorMessage = err.response?.data?.message || err.message || '加载统计数据失败。';
-      setMessage({ type: 'error', text: errorMessage });
+      console.error('Error fetching income statistics:', err);
+      setMessage({ type: 'error', text: `加载统计数据失败: ${err.message}` });
     } finally {
       setLoading(false);
     }
-  }, [filters, buildQueryParams]);
+  }, [filters, buildQueryString]); // Depend on 'filters' and 'buildQueryString'
 
-  // useEffect 和其他 handle 函数 (保持不变)
+  // Effect to fetch statistics whenever filters change
   useEffect(() => {
     fetchStatistics();
-  }, [fetchStatistics]);
+  }, [fetchStatistics]); // fetchStatistics itself has filters as a dependency
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -104,9 +125,12 @@ const IncomeStatistics = () => {
   const handleSelectChange = (name, value) => {
     setFilters(prev => {
       const newState = { ...prev, [name]: value };
+      // If period changes, reset selectedYear unless it's 'month'
       if (name === 'period' && value !== 'month') {
-        newState.selectedYear = '';
+        newState.selectedYear = ''; // Reset year if not monthly grouping
       }
+      // If category changes, reset subcategory selection for proper subcategory filtering
+      // This is still relevant because distinctSubcategories might change based on category
       if (name === 'category') {
         newState.subcategory = '';
       }
@@ -114,6 +138,7 @@ const IncomeStatistics = () => {
     });
   };
 
+  // The submit button now simply triggers a re-fetch based on current filters
   const handleSubmit = (e) => {
     e.preventDefault();
     fetchStatistics();
@@ -122,14 +147,21 @@ const IncomeStatistics = () => {
   const handleReset = () => {
     const currentYear = new Date().getFullYear().toString();
     setFilters({
-      startDate: '', endDate: '', category: '', subcategory: '',
-      minAmount: '', maxAmount: '', period: '', categoryType: '',
+      startDate: '',
+      endDate: '',
+      category: '',
+      subcategory: '',
+      minAmount: '',
+      maxAmount: '',
+      period: '',
+      categoryType: '',
       selectedYear: currentYear,
     });
+    // After resetting filters, trigger a fetch
+    // No need to call fetchStatistics() directly here as `filters` state change will trigger useEffect
   };
-  
-  // renderCategoryOrTimeDisplay 和 totalOverallAmount (保持不变)
-   const renderCategoryOrTimeDisplay = (item, period, categoryType) => {
+
+  const renderCategoryOrTimeDisplay = (item, period, categoryType) => {
     if (!item || item.id === undefined || item.id === null) {
       return '[未知统计项]';
     }
@@ -178,10 +210,8 @@ const IncomeStatistics = () => {
 
   const totalOverallAmount = statisticsData.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
 
-  // UI 部分 (JSX) 保持不变
   return (
     <MainLayout pageTitle="收入统计">
-      {/* ... 所有 JSX 代码保持不变 ... */}
       <div className="container mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-4">
         <Button
           onClick={() => window.location.href = '/incomes'}

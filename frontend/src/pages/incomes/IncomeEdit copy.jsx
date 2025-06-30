@@ -1,19 +1,14 @@
-// src/pages/incomes/IncomeEdit.jsx
-
-import React, { useState, useEffect } from 'react';
-// 1. 导入 apiClient
-import apiClient from '../../api/apiClient'; // 调整路径以匹配您的项目结构
-
-// 导入UI组件 (保持不变)
-import MainLayout from '../MainLayout.jsx';
-import Button from '@/components/ui/button';
-import Input from '@/components/ui/input';
+//import { useParams } from 'react-router-dom'; 
+import React, { useState, useEffect, useCallback } from 'react';
+import MainLayout from '../MainLayout.jsx'; // 确保 MainLayout.jsx 位于正确的位置
+import Button  from '@/components/ui/button';
+import  Input  from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Label from '@/components/ui/label';
+import  Label from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, XCircle, Edit, DollarSign, Tag, Calendar, LayoutGrid, CheckCircle } from 'lucide-react';
+import { Save, XCircle, Edit, DollarSign, Tag, Calendar, LayoutGrid, CheckCircle } from 'lucide-react'; // Icons
 
-// Helper function (保持不变)
+// Helper function to format date for input fields (YYYY-MM-DD)
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -24,50 +19,69 @@ const formatDateForInput = (dateString) => {
 };
 
 const IncomeEdit = ({ incomeId }) => {
-  const [income, setIncome] = useState(null); // 初始值为 null，用于区分加载中和未找到
+  //const { id } = useParams();
+  //console.log('IncomeEdit - ID from useParams:', id); 
+ // 现在直接使用传入的 incomeId prop
+  console.log('IncomeEdit - ID from props:', incomeId); // 新增调试信息，确认接收到 prop  
+  const [income, setIncome] = useState({
+    id: '', // To store the ID of the income being edited
+    description: '',
+    amount: '',
+    category: '',
+    subcategory: '',
+    date: formatDateForInput(new Date()), // Default to today's date, will be overwritten by fetched data
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [message, setMessage] = useState(null); // For success/error messages
 
+  // Hardcoded categories, these could be fetched from an API if dynamic
   const categories = ['工资', '奖金', '投资收益', '兼职收入', '礼金', '其他'];
 
   useEffect(() => {
-    if (!incomeId) {
-      setMessage({ type: 'error', text: '无效的收入记录ID。' });
-      setLoading(false);
-      return;
-    }
+    // Extract income ID from the URL path (e.g., /incomes/edit/123)
+    //const pathSegments = window.location.pathname.split('/');
+    //const incomeId = pathSegments[pathSegments.length - 1]; // Gets the ID from the URL
 
-    const fetchIncome = async () => {
-      setLoading(true);
-      setMessage(null);
-      try {
-        // 2. 使用 apiClient 发起 GET 请求获取单个记录
-        //    它会自动处理 baseURL 和 Authorization
-        const response = await apiClient.get(`/incomes/${incomeId}`);
-        const data = response.data;
+    if (incomeId) {
+      const fetchIncome = async () => {
+        setLoading(true);
+        setMessage(null);
+        try {
+          const token = localStorage.getItem('authToken'); // Get JWT from local storage
+          const response = await fetch(`/api/incomes/${incomeId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}` // Send JWT for authentication
+            }
+          });
+          const data = await response.json();
 
-        // 设置表单状态
+          if (!response.ok) {
+            throw new Error(data.message || 'Failed to fetch income details.');
+          }
+
+          // Format date for the input field
         setIncome({
-          id: data.id,
+          id: data.id, // Supabase 返回通常是 id，映射到你的 id 状态
           description: data.description,
           amount: data.amount.toString(),
           category: data.category,
           subcategory: data.subcategory,
           date: formatDateForInput(data.date),
-        });
-
-      } catch (err) {
-        // 3. 简化错误处理
-        const errorMessage = err.response?.data?.message || err.message || '加载收入记录失败。';
-        setMessage({ type: 'error', text: errorMessage });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchIncome();
-  }, [incomeId]); // 依赖项为 incomeId
+          });
+        } catch (err) {
+          console.error('Error fetching income:', err);
+          setMessage({ type: 'error', text: `加载收入记录失败: ${err.message}` });
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchIncome();
+    } else {
+      setLoading(false);
+      setMessage({ type: 'error', text: '无效的收入记录ID。' });
+    }handleSubmit
+  }, [incomeId]); //依赖数组改为 [incomeId]t
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -80,17 +94,16 @@ const IncomeEdit = ({ incomeId }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!income) return; // 如果 income 数据还未加载，则不执行
-    
     setSaving(true);
     setMessage(null);
 
-    // 前端验证逻辑 (保持不变)
+    // Basic frontend validation
     if (!income.description || !income.amount || !income.category || !income.subcategory || !income.date) {
       setMessage({ type: 'error', text: '所有字段都是必填项。' });
       setSaving(false);
       return;
     }
+
     if (isNaN(parseFloat(income.amount)) || parseFloat(income.amount) <= 0) {
       setMessage({ type: 'error', text: '金额必须是大于0的有效数字。' });
       setSaving(false);
@@ -98,27 +111,37 @@ const IncomeEdit = ({ incomeId }) => {
     }
 
     try {
-      // 4. 使用 apiClient 发起 PUT 请求更新记录
-      //    它会自动处理 baseURL, Content-Type, 和 Authorization
-      const response = await apiClient.put(`/incomes/${income.id}`, {
-        description: income.description,
-        amount: parseFloat(income.amount),
-        category: income.category,
-        subcategory: income.subcategory,
-        date: income.date,
+      const token = localStorage.getItem('authToken'); // Get JWT from local storage
+      const response = await fetch(`/api/incomes/${income.id}`, {
+        method: 'PUT', // Use PUT for updating
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Send JWT for authentication
+        },
+        body: JSON.stringify({
+          description: income.description,
+          amount: parseFloat(income.amount), // Convert amount back to number
+          category: income.category,
+          subcategory: income.subcategory,
+          date: income.date,
+        }),
       });
 
-      // 5. 从 response.data 获取成功消息
-      setMessage({ type: 'success', text: response.data.message || '收入记录更新成功！' });
-      
-      // 6. 使用 replace 重定向
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || '更新收入记录失败。');
+      }
+
+      setMessage({ type: 'success', text: data.message || '收入记录更新成功！' });
+      // Optionally redirect after a short delay
       setTimeout(() => {
-        window.location.replace('/incomes');
+        window.location.href = '/incomes'; // Redirect to income list after successful update
       }, 1500);
 
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || '更新收入记录失败，请稍后再试。';
-      setMessage({ type: 'error', text: errorMessage });
+      console.error('Error updating income:', err);
+      setMessage({ type: 'error', text: err.message || '更新收入记录失败，请稍后再试。' });
     } finally {
       setSaving(false);
     }
@@ -132,20 +155,27 @@ const IncomeEdit = ({ incomeId }) => {
     );
   }
 
-  // 7. 改进加载和错误状态的UI显示
-  if (!income) {
+  // If there's an error and no income data (e.g., ID not found), display error
+  if (!loading && message && message.type === 'error' && !income.id) {
     return (
       <MainLayout pageTitle="编辑收入记录">
-        <div className="text-center text-red-500 mt-8">
-          {message?.text || '无法找到该收入记录。'}
-        </div>
+        <p className="text-center text-red-500 mt-8">{message.text}</p>
       </MainLayout>
     );
   }
 
-  // UI 部分 (JSX) 保持不变
+  // If data is loaded but income object is empty (shouldn't happen if ID is valid)
+  if (!income.id) {
+    return (
+      <MainLayout pageTitle="编辑收入记录">
+        <p className="text-center text-gray-500 mt-8">无法找到收入记录。</p>
+      </MainLayout>
+    );
+  }
+
+
   return (
-    <MainLayout pageTitle="编辑收入记录">
+    <MainLayout pageTitle="编辑收入记录"> {/* 使用 MainLayout 包装组件 */}
       <div className="container mx-auto p-4 md:p-8 lg:p-12 flex items-center justify-center min-h-[calc(100vh-100px)]">
         <Card className="w-full max-w-lg shadow-xl rounded-xl overflow-hidden">
           <CardHeader className="bg-blue-600 text-white text-center py-5">
@@ -162,7 +192,6 @@ const IncomeEdit = ({ incomeId }) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Form fields... no changes here */}
               <div>
                 <Label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                   <LayoutGrid className="inline-block w-4 h-4 mr-1 text-gray-500" />描述:
@@ -174,7 +203,7 @@ const IncomeEdit = ({ incomeId }) => {
                   value={income.description}
                   onChange={handleInputChange}
                   required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
               <div>
@@ -190,7 +219,7 @@ const IncomeEdit = ({ incomeId }) => {
                   step="0.01"
                   min="0.01"
                   required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
               <div>
@@ -206,6 +235,7 @@ const IncomeEdit = ({ incomeId }) => {
                     <SelectValue placeholder="请选择大类" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">请选择大类</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
@@ -223,7 +253,7 @@ const IncomeEdit = ({ incomeId }) => {
                   value={income.subcategory}
                   onChange={handleInputChange}
                   required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
               <div>
@@ -237,15 +267,16 @@ const IncomeEdit = ({ incomeId }) => {
                   value={income.date}
                   onChange={handleInputChange}
                   required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
+
               <div className="flex flex-col sm:flex-row gap-3 mt-6">
                 <Button type="submit" className="flex-grow bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md py-2.5 text-base" disabled={saving}>
-                  <Save className="mr-2 h-5 w-5" />{saving ? '保存中...' : '确认修改'}
+                  <Save className="mr-2 h-5 w-5" />{saving ? '保存中...' : '保存'}
                 </Button>
                 <Button type="button" onClick={() => window.location.href = '/incomes'} variant="outline" className="flex-grow text-gray-700 border-gray-300 hover:bg-gray-100 rounded-md shadow-sm py-2.5 text-base">
-                  <XCircle className="mr-2 h-5 w-5" />返回列表
+                  <XCircle className="mr-2 h-5 w-5" />取消
                 </Button>
               </div>
             </form>
