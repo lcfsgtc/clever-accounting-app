@@ -68,7 +68,7 @@ export const expenseRoutes = [
         }
     },
 
-    // GET /api/expenses/categories (获取所有唯一的费用类别) - (最终修正版)
+     // GET /api/expenses/categories (获取所有唯一的费用类别) - (最终修正版)
     {
         method: 'GET',
         pattern: '/expenses/categories',
@@ -78,18 +78,19 @@ export const expenseRoutes = [
 
             try {
                 // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-                // 这是最终的、正确的查询方式
+                // 这是最终的、正确的查询方式：简化数据库查询
                 // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
                 const { data, error } = await apiContext.supabase
                     .from('expenses')
                     .select('category')
-                    .eq('user_id', request.userId)
-                    .not('category', 'is', null) // 确保 category 不为 null
-                    .neq('category', '');      // 并且 确保 category 不为空字符串
+                    .eq('user_id', request.userId);
 
                 if (error) throw error;
 
-                const categories = [...new Set(data.map(item => item.category).filter(Boolean))].sort(); // filter(Boolean) 再次确保没有空值
+                // 在 JavaScript 中进行过滤和去重，这更安全、更可靠
+                const categories = [...new Set(data.map(item => item.category).filter(Boolean))].sort();
+                // .filter(Boolean) 会优雅地移除所有 null, undefined, '' 等 "falsy" 值
+
                 return new Response(JSON.stringify(categories), { status: 200, headers: { 'Content-Type': 'application/json' } });
             } catch (err) {
                 console.error('Error fetching expense categories:', err);
@@ -111,12 +112,11 @@ export const expenseRoutes = [
             const { category } = queryParams;
 
             try {
+                // 同样地，简化数据库查询
                 let query = apiContext.supabase
                     .from('expenses')
                     .select('subcategory')
-                    .eq('user_id', request.userId)
-                    .not('subcategory', 'is', null) // 确保 subcategory 不为 null
-                    .neq('subcategory', '');      // 并且 确保 subcategory 不为空字符串
+                    .eq('user_id', request.userId);
 
                 // 如果前端提供了 category 参数，则根据该大类进行筛选
                 if (category) {
@@ -127,9 +127,12 @@ export const expenseRoutes = [
 
                 if (error) throw error;
 
+                // 在 JavaScript 中过滤和去重
                 const subcategories = [...new Set(data.map(item => item.subcategory).filter(Boolean))].sort();
+                
                 return new Response(JSON.stringify(subcategories), { status: 200, headers: { 'Content-Type': 'application/json' } });
-            } catch (err) {
+            } catch (err)
+            {
                 console.error('Error fetching expense subcategories:', err);
                 return new Response(JSON.stringify({ message: '获取支出子分类时发生服务器错误', details: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
             }
